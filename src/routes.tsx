@@ -3,6 +3,7 @@ import { Login } from './pages/Login'
 import { Home } from './pages/Home'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
+import { Produtos } from './pages/Produtos'
 
 export const AppRoutes = () => {
   return (
@@ -19,6 +20,8 @@ export const AppRoutes = () => {
               </ProtectedRoute>
             }
           />
+
+          <Route path="produtos" element={<Produtos />} />
 
           {/* Redirecionar qualquer rota não encontrada para login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
