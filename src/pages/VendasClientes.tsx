@@ -1,0 +1,19 @@
+import { Box, Container, Heading, Text } from '@chakra-ui/react'
+import { AppBreadcrumbs } from '../components/AppBreadcrumbs'
+
+export const VendasClientes = () => {
+  return (
+    <Box py={10}>
+      <Container maxW="6xl">
+        <AppBreadcrumbs />
+        <Heading size="lg" color="gray.900">
+          Vendas e Clientes
+        </Heading>
+        <Text mt={2} color="gray.600">
+          Rota mockada por enquanto.
+        </Text>
+      </Container>
+    </Box>
+  )
+}
+
