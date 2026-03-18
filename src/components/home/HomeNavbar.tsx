@@ -59,7 +59,10 @@ export const HomeNavbar = () => {
                     return
                   }
                   if (item === 'Produtos') {
-                    navigate('/produtos')
+                    const section = document.getElementById('produtos-destaque')
+                    if (section) {
+                      section.scrollIntoView({ behavior: 'smooth' })
+                    }
                     return
                   }
                   if (item === 'Meus Orçamentos') {

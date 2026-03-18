@@ -1,8 +1,8 @@
 export type AppModuleKey =
-  | 'admin'
   | 'estoque'
   | 'produtos'
   | 'vendas-clientes'
+  | 'admin'
 
 export interface AppModule {
   key: AppModuleKey
@@ -11,10 +11,10 @@ export interface AppModule {
 }
 
 export const APP_MODULES: AppModule[] = [
-  { key: 'admin', label: 'Admin', path: '/admin' },
   { key: 'estoque', label: 'Estoque', path: '/estoque' },
   { key: 'produtos', label: 'Produtos', path: '/produtos' },
   { key: 'vendas-clientes', label: 'Vendas e Clientes', path: '/vendas-clientes' },
+  { key: 'admin', label: 'Admin', path: '/admin' },
 ]
 
 export const APP_DEFAULT_PATH = '/portal-interno'

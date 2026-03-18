@@ -30,6 +30,12 @@ export const HomeHeroSection = () => (
               py={2}
               borderRadius="md"
               _hover={{ bg: '#111111' }}
+              onClick={() => {
+                const section = document.getElementById('produtos-destaque')
+                if (section) {
+                  section.scrollIntoView({ behavior: 'smooth' })
+                }
+              }}
             >
               Ver Catálogo Completo
             </Button>
@@ -44,6 +50,12 @@ export const HomeHeroSection = () => (
               py={2}
               borderRadius="md"
               _hover={{ bg: '#eaecf0', borderColor: '#c6cbd2' }}
+              onClick={() => {
+                const phone = '558781440072'
+                const message = 'Olá, acessei o site da Bahia Brindes e gostaria de solicitar um orçamento.'
+                const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+                window.open(url, '_blank')
+              }}
             >
               Solicitar Orçamento
             </Button>
