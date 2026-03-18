@@ -70,7 +70,11 @@ export const MeuPerfil = () => {
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [documento, setDocumento] = useState('')
-  const [endereco, setEndereco] = useState('')
+  const [rua, setRua] = useState('')
+  const [numero, setNumero] = useState('')
+  const [cep, setCep] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null)
 
   // Carregar dados do perfil
@@ -83,7 +87,11 @@ export const MeuPerfil = () => {
       setEmail(data.email ?? '')
       setTelefone(data.telefone ?? '')
       setDocumento(data.documento ?? '')
-      setEndereco(data.endereco ?? '')
+      setRua(data.endereco?.rua ?? '')
+      setNumero(data.endereco?.numero ?? '')
+      setCep(data.endereco?.cep ?? '')
+      setCidade(data.endereco?.cidade ?? '')
+      setEstado(data.endereco?.estado ?? '')
       setFotoPerfil(data.fotoPerfil ?? null)
       setLoading(false)
     }).catch(() => {
@@ -105,13 +113,25 @@ export const MeuPerfil = () => {
   const handleSalvar = async () => {
     setSaving(true)
     try {
-      const payload: Record<string, string> = {}
+      const payload: any = {}
       if (nome.trim()) payload.nome = nome.trim()
       if (email.trim()) payload.email = email.trim()
       if (telefone.trim()) payload.telefone = telefone.replace(/\D/g, '')
       if (documento.trim()) payload.documento = documento.replace(/\D/g, '')
-      if (endereco.trim()) payload.endereco = endereco.trim()
       if (fotoPerfil !== null) payload.fotoPerfil = fotoPerfil
+
+      const enderecoFilled = rua.trim() || numero.trim() || cep.trim() || cidade.trim() || estado.trim()
+      if (enderecoFilled) {
+        payload.endereco = {
+          rua: rua.trim() || undefined,
+          numero: numero.trim() || undefined,
+          cep: cep.replace(/\D/g, '') || undefined,
+          cidade: cidade.trim() || undefined,
+          estado: estado.trim() || undefined,
+        }
+      } else {
+        payload.endereco = null
+      }
 
       const updated = await clienteService.atualizarMeu(token, payload)
       setPerfil(updated)
@@ -272,7 +292,18 @@ export const MeuPerfil = () => {
                       />
                     </Grid>
 
-                    <Field label="Endereço" value={endereco} onChange={setEndereco} placeholder="Rua, número, cidade..." />
+                    <Text fontWeight="700" fontSize="sm" color="#1a1616" pt={2}>
+                      Endereço
+                    </Text>
+                    <Grid templateColumns={{ base: '1fr', md: '2fr 1fr' }} gap={4}>
+                      <Field label="Rua" value={rua} onChange={setRua} placeholder="Rua" />
+                      <Field label="Número" value={numero} onChange={setNumero} placeholder="Número" />
+                    </Grid>
+                    <Grid templateColumns={{ base: '1fr', md: '1fr 1fr 160px' }} gap={4}>
+                      <Field label="CEP" value={cep} onChange={setCep} placeholder="Somente números" />
+                      <Field label="Cidade" value={cidade} onChange={setCidade} placeholder="Cidade" />
+                      <Field label="Estado" value={estado} onChange={setEstado} placeholder="UF" />
+                    </Grid>
 
                     {/* Botões */}
                     <HStack justify="flex-end" gap={3} pt={2}>

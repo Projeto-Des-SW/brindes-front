@@ -26,8 +26,6 @@ import {
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 
-type OrcamentoStatus = 'ARTE_PENDENTE' | 'EM_PRODUCAO' | 'CONCLUIDO' | 'ORCAMENTO_SOLICITADO'
-
 const STATUS_LABEL: Record<string, string> = {
   ARTE_PENDENTE: 'Artes com Aprovação Pendente',
   EM_PRODUCAO: 'Em Produção',
@@ -134,14 +132,6 @@ interface HistoricoProps {
 }
 
 const HistoricoStatus = ({ historico, statusAtual }: HistoricoProps) => {
-  const statusOrder: OrcamentoStatus[] = [
-    'ORCAMENTO_SOLICITADO',
-    'ARTE_PENDENTE',
-    'EM_PRODUCAO',
-    'CONCLUIDO',
-  ]
-  const statusAtualIdx = statusOrder.indexOf(statusAtual as OrcamentoStatus)
-
   return (
     <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="lg" p={6}>
       <HStack gap={2} mb={5}>
@@ -154,7 +144,7 @@ const HistoricoStatus = ({ historico, statusAtual }: HistoricoProps) => {
       <VStack align="stretch" gap={0}>
         {historico.map((item, idx) => {
           const isLast = idx === historico.length - 1
-          const isCurrent = isLast
+          const isCurrent = (item.status ?? '') === statusAtual || (isLast && !statusAtual)
           return (
             <HStack key={item.id} align="start" gap={4}>
               {/* Linha vertical + ícone */}
@@ -429,6 +419,7 @@ export const OrcamentoDetalhe = () => {
                   fontSize="sm"
                   borderRadius="md"
                   _hover={{ bg: 'gray.50' }}
+                  onClick={() => window.print()}
                 >
                   <HStack gap={2}>
                     <DownloadIcon />
@@ -637,9 +628,6 @@ export const OrcamentoDetalhe = () => {
                           Falar com Suporte
                         </Button>
                         <Button
-                          as="a"
-                          href={nfeJpg}
-                          download="nota-fiscal.jpg"
                           variant="outline"
                           borderColor="gray.200"
                           color="#1a1616"
@@ -647,6 +635,14 @@ export const OrcamentoDetalhe = () => {
                           fontSize="sm"
                           borderRadius="md"
                           _hover={{ bg: 'gray.50' }}
+                          onClick={() => {
+                            const a = document.createElement('a')
+                            a.href = nfeJpg
+                            a.download = 'nota-fiscal.jpg'
+                            document.body.appendChild(a)
+                            a.click()
+                            a.remove()
+                          }}
                         >
                           <HStack gap={2}>
                             <DownloadIcon />
