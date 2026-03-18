@@ -1,5 +1,13 @@
 import { apiUrl, API_ENDPOINTS } from '../config/api'
 
+export interface EnderecoDTO {
+  rua?: string
+  numero?: string
+  cep?: string
+  cidade?: string
+  estado?: string
+}
+
 export interface RegisterRequest {
   nome: string
   email: string
@@ -7,7 +15,7 @@ export interface RegisterRequest {
   token: string
   documento?: string
   telefone?: string
-  endereco?: string
+  endereco?: EnderecoDTO
   segmentacao?: string
 }
 
@@ -21,7 +29,7 @@ export interface RegisterResponse {
   email: string
   documento?: string | null
   telefone?: string | null
-  endereco?: string | null
+  endereco?: (EnderecoDTO & { id?: number | null }) | null
   segmentacao?: string | null
   criadoEm?: string
 }
@@ -49,6 +57,22 @@ export const authService = {
         ? await response.json()
         : { message: 'Erro ao enviar token de cadastro' }
       throw new Error(errorData.message || 'Erro ao enviar token de cadastro')
+    }
+  },
+
+  async validateToken(data: { email: string; token: string }): Promise<void> {
+    const response = await fetch(apiUrl(`${API_ENDPOINTS.auth.register}/validate-token`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      const errorData = contentType?.includes('application/json')
+        ? await response.json()
+        : { message: 'Token inválido ou expirado' }
+      throw new Error(errorData.message || 'Token inválido ou expirado')
     }
   },
 
