@@ -1,9 +1,55 @@
 import type { ReactNode } from 'react'
-import { Box, Button, Flex, MenuContent, MenuItem, MenuRoot, MenuTrigger } from '@chakra-ui/react'
+import { Box, Button, Flex, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, Stack } from '@chakra-ui/react'
 import { PencilIcon } from '../../../components/icons'
 import { SimpleTable } from '../components'
 import { formatInt } from '../format'
 import type { CategoriaRow, FornecedorRow, LocalEstoqueRow, MateriaPrimaRow, ParamTabKey, StatusAtivo } from './types'
+
+const RowActionsPopover = ({ onEdit, onDelete }: { onEdit?: () => void; onDelete?: () => void }) => (
+  <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações">
+        <PencilIcon size={16} />
+      </Button>
+    </PopoverTrigger>
+    <PopoverPositioner>
+      <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+        <PopoverBody p={1}>
+          <Stack gap={0}>
+            <Button
+              variant="ghost"
+              size="sm"
+              justifyContent="flex-start"
+              fontWeight="400"
+              fontSize="sm"
+              borderRadius="sm"
+              px={3}
+              h="34px"
+              onClick={onEdit}
+            >
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              justifyContent="flex-start"
+              fontWeight="400"
+              fontSize="sm"
+              borderRadius="sm"
+              px={3}
+              h="34px"
+              color="red.600"
+              _hover={{ bg: 'red.50' }}
+              onClick={onDelete}
+            >
+              Excluir
+            </Button>
+          </Stack>
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverPositioner>
+  </PopoverRoot>
+)
 
 const tabLabel: Record<ParamTabKey, string> = {
   fornecedores: 'FORNECEDORES',
@@ -120,21 +166,7 @@ export const FornecedoresTable = ({
             <AtivoPill status={r.status} />
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do fornecedor">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover onEdit={() => onEdit?.(r)} onDelete={() => onDelete?.(r)} />
           </Box>
         </Box>
       ))}
@@ -212,21 +244,7 @@ export const MateriasPrimasTable = ({
             {formatInt(r.estoqueMinimo)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações da matéria-prima">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover onEdit={() => onEdit?.(r)} onDelete={() => onDelete?.(r)} />
           </Box>
         </Box>
       ))}
@@ -264,21 +282,7 @@ export const LocaisEstoqueTable = ({
             </TableCellTruncate>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do local de estoque">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover onEdit={() => onEdit?.(r)} onDelete={() => onDelete?.(r)} />
           </Box>
         </Box>
       ))}
@@ -314,21 +318,7 @@ export const CategoriasTable = ({
             </TableCellTruncate>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações da categoria">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover onEdit={() => onEdit?.(r)} onDelete={() => onDelete?.(r)} />
           </Box>
         </Box>
       ))}

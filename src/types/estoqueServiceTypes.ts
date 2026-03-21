@@ -21,6 +21,10 @@ export interface MateriaPrimaResponse {
   unidade: string
   categoria: string
   fornecedorPrincipal: string
+  fornecedorSecundarioId?: number | null
+  fornecedorSecundario?: string
+  localEstoqueId?: number | null
+  localEstoque?: string
   estoqueAtual: number
   estoqueMinimo: number
 }

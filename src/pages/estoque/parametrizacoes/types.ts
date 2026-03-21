@@ -28,6 +28,8 @@ export interface MateriaPrimaRow {
   unidade: string
   categoria: string
   fornecedorPrincipal: string
+  fornecedorSecundarioId?: number | null
+  localEstoqueId?: number | null
   estoqueAtual: number
   estoqueMinimo: number
 }
