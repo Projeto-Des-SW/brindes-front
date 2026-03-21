@@ -1,73 +1,121 @@
-# React + TypeScript + Vite
+# Bahia Brindes — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Este é o frontend do Bahia Brindes, um sistema feito para facilitar o dia a dia de pequenas empresas que trabalham com brindes e presentes personalizados. A ideia é simples: juntar catálogo, orçamentos, estoque, vendas e administração em um único lugar — sem planilhas, sem retrabalho.
 
-Currently, two official plugins are available:
+## Quem usa e o que vê?
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+O sistema tem duas "caras" diferentes, dependendo de quem está acessando:
 
-## React Compiler
+### Para o cliente
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+O cliente chega pela vitrine, navega pelos produtos, monta um carrinho e solicita um orçamento. Depois disso, ele pode:
 
-## Expanding the ESLint configuration
+- Acompanhar o andamento dos seus pedidos (arte pendente, em produção, concluído...)
+- Ver o histórico e os detalhes de cada orçamento
+- Editar seu perfil e dados de contato
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Tudo de forma direta, sem precisar ligar ou mandar mensagem.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Para a equipe interna
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Funcionários e administradores acessam o portal interno, com menu lateral e módulos separados:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Estoque** — controle de matérias-primas, movimentações de entrada/saída, fornecedores, categorias e locais de armazenamento.
+- **Produtos** — cadastro completo com ficha técnica, imagens, preço de custo e venda.
+- **Vendas e Clientes** — gestão de clientes, orçamentos, acompanhamento de status.
+- **Admin** — criação de funcionários e controle de permissões (apenas para administradores).
+
+### Controle de acesso
+
+| Perfil | Onde acessa |
+|--------|------------|
+| **Visitante** | Vitrine de produtos, detalhes, carrinho |
+| **Cliente** | Meus orçamentos, meu perfil |
+| **Funcionário** | Portal interno completo |
+| **Admin** | Tudo + painel administrativo |
+
+Rotas não autorizadas redirecionam automaticamente para o login.
+
+---
+
+## 🔧 Detalhes técnicos
+
+### Stack
+
+| Tecnologia | Versão | Uso |
+|-----------|--------|-----|
+| React | 19 | Biblioteca de UI |
+| TypeScript | 5.9 | Tipagem estática |
+| Vite | 7 | Build e dev server |
+| Chakra UI | v3 | Componentes de interface |
+| Tailwind CSS | v4 | Utilitários de estilo |
+| React Router | v7 | Roteamento SPA |
+| Framer Motion | 12 | Animações |
+
+### Estrutura do projeto
+
+```
+src/
+├── config/          # URL da API, endpoints centralizados, definição dos módulos do menu
+├── context/         # AuthContext (login, token, usuário), CartContext (carrinho)
+├── services/        # Chamadas HTTP organizadas por domínio
+│   ├── authService.ts
+│   ├── clienteService.ts
+│   ├── estoqueService.ts
+│   ├── orcamentoService.ts
+│   ├── produtoService.ts
+│   └── http.ts         # Helpers: authHeaders, parseError, getJsonOrThrow
+├── components/      # Header, breadcrumbs, rota protegida, ícones, cards
+├── pages/           # 20+ páginas organizadas por funcionalidade
+│   ├── Login.tsx / Register.tsx          # Autenticação
+│   ├── Home.tsx / ProdutoDetalhe.tsx     # Vitrine pública
+│   ├── CarrinhoPage.tsx                  # Carrinho
+│   ├── MeusOrcamentos.tsx               # Área do cliente
+│   ├── OrcamentoDetalhe.tsx             # Detalhes do pedido
+│   ├── VendasClientes.tsx               # Gestão de vendas (portal)
+│   ├── Estoque.tsx                       # Gestão de estoque (portal)
+│   └── Admin.tsx                         # Painel admin
+├── types/           # Tipagens TypeScript
+└── assets/          # Imagens e ícones
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Comunicação com o backend
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+As chamadas são feitas com **fetch nativo** (sem Axios). O token JWT fica no `localStorage` e é injetado automaticamente no header `Authorization: Bearer <token>`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+A URL base da API vem da variável de ambiente `VITE_API_BASE_URL`. Todos os endpoints ficam centralizados em `config/api.ts`, assim não tem URL espalhada pelo código.
+
+### Como rodar localmente
+
+**Pré-requisitos:** Node.js 18+.
+
+1. Copie o `.env.example` para `.env` e ajuste a URL do backend:
+
+```bash
+cp .env.example .env
 ```
+
+```env
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+2. Instale as dependências e inicie:
+
+```bash
+npm install
+npm run dev
+```
+
+O app sobe em `http://localhost:5173`.
+
+### Build de produção
+
+```bash
+npm run build
+```
+
+Os arquivos ficam na pasta `dist/`, prontos para deploy em Vercel, Render ou qualquer servidor de arquivos estáticos.
+
+---
+
+Desenvolvido como projeto da disciplina de Projetão — UFAPE, 7º período.
