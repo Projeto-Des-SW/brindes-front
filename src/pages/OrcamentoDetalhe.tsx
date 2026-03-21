@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import nfeJpg from '../assets/nfe.jpg'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import {
   Badge,
   Box,
@@ -379,6 +380,146 @@ export const OrcamentoDetalhe = () => {
     ? (STATUS_LABEL[data.status] ?? data.status)
     : ''
 
+  const gerarRecibo = () => {
+    if (!data) return
+    const doc = new jsPDF()
+    const pageW = doc.internal.pageSize.getWidth()
+    const gray = '#6B7280'
+    const dark = '#111827'
+
+    // ── Cabeçalho ──
+    doc.setFontSize(20)
+    doc.setTextColor(dark)
+    doc.setFont('helvetica', 'bold')
+    doc.text('RECIBO DE PEDIDO', pageW / 2, 20, { align: 'center' })
+
+    doc.setFontSize(10)
+    doc.setTextColor(gray)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Bahia Brindes', pageW / 2, 28, { align: 'center' })
+
+    // ── Linha divisória ──
+    doc.setDrawColor('#E5E7EB')
+    doc.line(14, 33, pageW - 14, 33)
+
+    // ── Informações do pedido ──
+    doc.setFontSize(10)
+    doc.setTextColor(dark)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PEDIDO', 14, 41)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.codigo ?? `#${data.id}`, 14, 47)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('STATUS', pageW / 2, 41, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(STATUS_LABEL[data.status] ?? data.status, pageW / 2, 47, { align: 'center' })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('DATA', pageW - 14, 41, { align: 'right' })
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.dataCriacao ?? '—', pageW - 14, 47, { align: 'right' })
+
+    // ── Dados do cliente ──
+    doc.line(14, 52, pageW - 14, 52)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('CLIENTE', 14, 59)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.nomeCliente ?? '—', 14, 65)
+    if (data.emailCliente) doc.text(data.emailCliente, 14, 70)
+    if (data.telefoneCliente) doc.text(data.telefoneCliente, 14, 75)
+
+    // ── Tabela de produtos ──
+    const tableTop = data.emailCliente ? (data.telefoneCliente ? 82 : 77) : 72
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('PRODUTOS', 14, tableTop)
+
+    autoTable(doc, {
+      startY: tableTop + 4,
+      head: [['Produto', 'Qtd', 'Valor Unit.', 'Desconto', 'Total']],
+      body: (data.produtos ?? []).map(p => [
+        p.nome,
+        String(p.quantidade),
+        formatPreco(Number(p.precoUnitario ?? 0)),
+        p.desconto && Number(p.desconto) > 0 ? `- ${formatPreco(Number(p.desconto))}` : '—',
+        formatPreco(Number(p.precoTotal ?? 0)),
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: '#1F2937', textColor: '#FFFFFF', fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: '#F9FAFB' },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { halign: 'center', cellWidth: 18 },
+        2: { halign: 'right', cellWidth: 32 },
+        3: { halign: 'right', cellWidth: 28 },
+        4: { halign: 'right', cellWidth: 32 },
+      },
+      margin: { left: 14, right: 14 },
+    })
+
+    // ── Totais ──
+    const finalY = (doc as any).lastAutoTable.finalY + 8
+    const col1 = pageW - 80
+    const col2 = pageW - 14
+
+    const addTotalRow = (label: string, value: string, y: number, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(bold ? 10 : 9)
+      doc.setTextColor(bold ? dark : gray)
+      doc.text(label, col1, y)
+      doc.text(value, col2, y, { align: 'right' })
+    }
+
+    let y = finalY
+    addTotalRow('Subtotal:', formatPreco(Number(data.subtotal ?? 0)), y)
+    if (Number(data.descontoTotal ?? 0) > 0) {
+      y += 6
+      addTotalRow('Desconto:', `- ${formatPreco(Number(data.descontoTotal))}`, y)
+    }
+    y += 6
+    doc.setDrawColor('#E5E7EB')
+    doc.line(col1, y - 2, col2, y - 2)
+    addTotalRow('TOTAL:', formatPreco(Number(data.valorTotal ?? 0)), y + 2, true)
+
+    if (Number(data.valorPago ?? 0) > 0) {
+      y += 10
+      addTotalRow('Valor Pago:', formatPreco(Number(data.valorPago)), y)
+      const restante = Number(data.valorTotal ?? 0) - Number(data.valorPago ?? 0)
+      if (restante > 0) {
+        y += 6
+        doc.setTextColor('#DC2626')
+        addTotalRow('Saldo Restante:', formatPreco(restante), y)
+      }
+    }
+
+    // ── Método de pagamento ──
+    if (data.metodoPagamento) {
+      y += 12
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(gray)
+      doc.text(`Forma de pagamento: ${data.metodoPagamento}`, 14, y)
+    }
+
+    // ── Rodapé ──
+    const pageH = doc.internal.pageSize.getHeight()
+    doc.setFontSize(8)
+    doc.setTextColor('#9CA3AF')
+    doc.text('Documento gerado por Bahia Brindes', pageW / 2, pageH - 10, { align: 'center' })
+
+    doc.save(`recibo-${data.codigo ?? data.id}.pdf`)
+  }
+
   return (
     <Box minH="100vh" bg="gray.50" display="flex" flexDirection="column">
       <HomeNavbar />
@@ -673,18 +814,11 @@ export const OrcamentoDetalhe = () => {
                           fontSize="sm"
                           borderRadius="md"
                           _hover={{ bg: 'gray.50' }}
-                          onClick={() => {
-                            const a = document.createElement('a')
-                            a.href = nfeJpg
-                            a.download = 'nota-fiscal.jpg'
-                            document.body.appendChild(a)
-                            a.click()
-                            a.remove()
-                          }}
+                          onClick={gerarRecibo}
                         >
                           <HStack gap={2}>
                             <DownloadIcon />
-                            <Text>Baixar Nota Fiscal</Text>
+                            <Text>Baixar Recibo</Text>
                           </HStack>
                         </Button>
                       </VStack>

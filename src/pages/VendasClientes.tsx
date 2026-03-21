@@ -557,164 +557,147 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                   </Section>
                 </SimpleGrid>
 
-                {/* ── Produtos e Artes ── */}
-                <Section title="Produtos e Artes">
-                  <Stack gap={3}>
-                    {detalhe.produtos.map((prod) => {
-                      const arte = detalhe.artes.find((a) => a.produtoNome === prod.nome)
-                      return (
-                        <Box
-                          key={prod.id}
-                          border="1px solid"
-                          borderColor="gray.200"
-                          borderRadius="lg"
-                          overflow="hidden"
-                        >
-                          {/* Cabeçalho do produto */}
-                          <Flex px={4} py={3} justify="space-between" align="center" bg="white">
-                            <Box>
-                              <Text fontSize="sm" fontWeight="700" color="gray.900">{prod.nome}</Text>
-                              <Text fontSize="xs" color="gray.500" mt="2px">
-                                Qtd.: {prod.quantidade} • Unit.: {formatBRL(prod.precoUnitario ?? 0)}{(prod.desconto ?? 0) > 0 ? ` • Desc.: - ${formatBRL(prod.desconto)}` : ''} • Total: {formatBRL(prod.precoTotal ?? 0)}
-                              </Text>
-                            </Box>
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              h="28px"
-                              fontSize="11px"
-                              px={3}
-                              gap={1}
-                              disabled={uploadingArte}
-                              onClick={() => handleArteClick(prod.nome)}
+                {/* ── Produtos, Artes e Comentários ── */}
+                {(() => {
+                  const statusIdx = STATUS_FLOW_ORDER.indexOf(detalhe.status)
+                  const artesAprovIdx = STATUS_FLOW_ORDER.indexOf('ARTES_APROVADAS')
+                  const canUpload = statusIdx < artesAprovIdx
+                  const comentariosGerais = (detalhe.comentarios ?? []).filter(c => !c.produtoNome)
+
+                  return (
+                    <Section title="Produtos e Artes">
+                      <Stack gap={3}>
+                        {detalhe.produtos.map((prod) => {
+                          const arte = detalhe.artes.find((a) => a.produtoNome === prod.nome)
+                          const comentariosProd = (detalhe.comentarios ?? []).filter(c => c.produtoNome === prod.nome)
+                          return (
+                            <Box
+                              key={prod.id}
+                              border="1px solid"
+                              borderColor="gray.200"
+                              borderRadius="lg"
+                              overflow="hidden"
                             >
-                              {uploadingArte && uploadForProduto.current === prod.nome ? (
-                                <HStack gap={1}>
-                                  <Spinner size="xs" />
-                                  <span>Enviando...</span>
-                                </HStack>
-                              ) : (
-                                <HStack gap={1}>
-                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
-                                    <polyline points="17 8 12 3 7 8"/>
-                                    <line x1="12" y1="3" x2="12" y2="15"/>
-                                  </svg>
-                                  <span>Atualizar Arte</span>
-                                </HStack>
-                              )}
-                            </Button>
-                          </Flex>
-
-                          {/* Arte do produto (se existir) */}
-                          {arte ? (
-                            <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
-                              <Flex align="center" justify="space-between" gap={3}>
-                                <Flex align="center" gap={3} flex="1">
-                                  <Box
-                                    w="60px" h="60px" borderRadius="md" overflow="hidden" flexShrink={0}
-                                    border="1px solid" borderColor="gray.300" bg="gray.200"
+                              {/* Cabeçalho do produto */}
+                              <Flex px={4} py={3} justify="space-between" align="center" bg="white">
+                                <Box>
+                                  <Text fontSize="sm" fontWeight="700" color="gray.900">{prod.nome}</Text>
+                                  <Text fontSize="xs" color="gray.500" mt="2px">
+                                    Qtd.: {prod.quantidade} • Unit.: {formatBRL(prod.precoUnitario ?? 0)}{(prod.desconto ?? 0) > 0 ? ` • Desc.: - ${formatBRL(prod.desconto)}` : ''} • Total: {formatBRL(prod.precoTotal ?? 0)}
+                                  </Text>
+                                </Box>
+                                {canUpload && (
+                                  <Button
+                                    size="xs" variant="outline" h="28px" fontSize="11px" px={3} gap={1}
+                                    disabled={uploadingArte}
+                                    onClick={() => handleArteClick(prod.nome)}
                                   >
-                                    {arte.imagemData ? (
-                                      <img src={arte.imagemData} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : arte.imagemUrl ? (
-                                      <img src={arte.imagemUrl} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    {uploadingArte && uploadForProduto.current === prod.nome ? (
+                                      <HStack gap={1}><Spinner size="xs" /><span>Enviando...</span></HStack>
                                     ) : (
-                                      <Flex w="full" h="full" align="center" justify="center">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
-                                          <rect x="3" y="3" width="18" height="18" rx="2"/>
-                                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                                          <path d="m21 15-5-5L5 21"/>
+                                      <HStack gap={1}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
+                                          <polyline points="17 8 12 3 7 8"/>
+                                          <line x1="12" y1="3" x2="12" y2="15"/>
                                         </svg>
-                                      </Flex>
+                                        <span>Atualizar Arte</span>
+                                      </HStack>
                                     )}
-                                  </Box>
-                                  <Box flex="1">
-                                    <HStack gap={1} mb="2px">
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                                        <polyline points="14 2 14 8 20 8"/>
-                                      </svg>
-                                      <Text fontSize="xs" fontWeight="600" color="gray.700">
-                                        {arte.nomeArquivo ? arte.nomeArquivo : 'arte.jpg'}
-                                      </Text>
-                                    </HStack>
-                                    <Text fontSize="11px" color="gray.400">Arte enviada</Text>
-                                  </Box>
-                                </Flex>
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  h="30px"
-                                  fontSize="11px"
-                                  px={3}
-                                  gap={1}
-                                  flexShrink={0}
-                                  disabled={downloadingArteId === arte.id || uploadingArte}
-                                  onClick={() => handleDownloadArte(arte.id)}
-                                >
-                                  {downloadingArteId === arte.id ? (
-                                    <HStack gap={1}>
-                                      <Spinner size="xs" />
-                                      <span>Baixando...</span>
-                                    </HStack>
-                                  ) : (
-                                    <HStack gap={1}>
-                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
-                                        <polyline points="7 10 12 15 17 10"/>
-                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                      </svg>
-                                      <span>Baixar</span>
-                                    </HStack>
-                                  )}
-                                </Button>
+                                  </Button>
+                                )}
                               </Flex>
-                            </Box>
-                          ) : (
-                            <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
-                              <Text fontSize="xs" color="gray.400">Nenhuma arte enviada ainda.</Text>
-                            </Box>
-                          )}
-                        </Box>
-                      )
-                    })}
-                    {detalhe.produtos.length === 0 && (
-                      <Text fontSize="sm" color="gray.400">Nenhum produto registrado.</Text>
-                    )}
-                  </Stack>
-                </Section>
 
-                {/* ── Comentários do Cliente ── */}
-                <Section title="💬 Comentários do Cliente">
-                  {detalhe.comentarios && detalhe.comentarios.length > 0 ? (() => {
-                    // Agrupa por produto (null = geral)
-                    const grupos: Record<string, typeof detalhe.comentarios> = {}
-                    detalhe.comentarios.forEach((c) => {
-                      const chave = c.produtoNome ?? '__geral__'
-                      if (!grupos[chave]) grupos[chave] = []
-                      grupos[chave].push(c)
-                    })
-                    return (
-                      <Stack gap={4}>
-                        {Object.entries(grupos).map(([chave, comentarios]) => (
-                          <Box key={chave}>
-                            {chave !== '__geral__' && (
-                              <Text fontSize="11px" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={2}>
-                                {chave}
-                              </Text>
-                            )}
+                              {/* Arte */}
+                              {arte ? (
+                                <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
+                                  <Flex align="center" justify="space-between" gap={3}>
+                                    <Flex align="center" gap={3} flex="1">
+                                      <Box w="52px" h="52px" borderRadius="md" overflow="hidden" flexShrink={0} border="1px solid" borderColor="gray.300" bg="gray.200">
+                                        {arte.imagemData ? (
+                                          <img src={arte.imagemData} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : arte.imagemUrl ? (
+                                          <img src={arte.imagemUrl} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                          <Flex w="full" h="full" align="center" justify="center">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
+                                              <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                                              <path d="m21 15-5-5L5 21"/>
+                                            </svg>
+                                          </Flex>
+                                        )}
+                                      </Box>
+                                      <Box flex="1" minW={0}>
+                                        <Text fontSize="xs" fontWeight="600" color="gray.700" noOfLines={1}>
+                                          {arte.nomeArquivo ?? 'arte.jpg'}
+                                        </Text>
+                                        <Box
+                                          display="inline-block" mt="2px" px="6px" py="1px" borderRadius="full" fontSize="10px" fontWeight="700"
+                                          bg={arte.status === 'APROVADA' ? '#d1fae5' : arte.status === 'AJUSTE_SOLICITADO' ? '#fee2e2' : '#fef3c7'}
+                                          color={arte.status === 'APROVADA' ? '#065f46' : arte.status === 'AJUSTE_SOLICITADO' ? '#991b1b' : '#92400e'}
+                                        >
+                                          {arte.status === 'APROVADA' ? 'Aprovada' : arte.status === 'AJUSTE_SOLICITADO' ? 'Ajuste solicitado' : 'Pendente'}
+                                        </Box>
+                                      </Box>
+                                    </Flex>
+                                    <Button
+                                      size="xs" variant="outline" h="28px" fontSize="11px" px={3} gap={1} flexShrink={0}
+                                      disabled={downloadingArteId === arte.id || uploadingArte}
+                                      onClick={() => handleDownloadArte(arte.id)}
+                                    >
+                                      {downloadingArteId === arte.id ? (
+                                        <HStack gap={1}><Spinner size="xs" /><span>Baixando...</span></HStack>
+                                      ) : (
+                                        <HStack gap={1}>
+                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                          </svg>
+                                          <span>Baixar</span>
+                                        </HStack>
+                                      )}
+                                    </Button>
+                                  </Flex>
+                                </Box>
+                              ) : (
+                                <Box px={4} py="8px" bg="gray.50" borderTop="1px solid" borderColor="gray.100">
+                                  <Text fontSize="xs" color="gray.400">Nenhuma arte enviada ainda.</Text>
+                                </Box>
+                              )}
+
+                              {/* Comentários do produto */}
+                              {comentariosProd.length > 0 && (
+                                <Stack gap={2} px={4} py={3} borderTop="1px solid" borderColor="gray.100">
+                                  {comentariosProd.map((c) => (
+                                    <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                      <Flex justify="space-between" mb="2px">
+                                        <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
+                                        <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                                      </Flex>
+                                      <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                                    </Box>
+                                  ))}
+                                </Stack>
+                              )}
+                            </Box>
+                          )
+                        })}
+                        {detalhe.produtos.length === 0 && (
+                          <Text fontSize="sm" color="gray.400">Nenhum produto registrado.</Text>
+                        )}
+
+                        {/* Comentários gerais (sem produto) */}
+                        {comentariosGerais.length > 0 && (
+                          <Box>
+                            <Text fontSize="11px" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={2}>
+                              Comentários Gerais
+                            </Text>
                             <Stack gap={2}>
-                              {comentarios.map((c) => (
-                                <Box
-                                  key={c.id}
-                                  border="1px solid"
-                                  borderColor="blue.100"
-                                  borderRadius="lg"
-                                  p={3}
-                                  bg="blue.50"
-                                >
-                                  <Flex justify="space-between" mb={1}>
+                              {comentariosGerais.map((c) => (
+                                <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                  <Flex justify="space-between" mb="2px">
                                     <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
                                     <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
                                   </Flex>
@@ -723,15 +706,11 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                               ))}
                             </Stack>
                           </Box>
-                        ))}
+                        )}
                       </Stack>
-                    )
-                  })() : (
-                    <Box border="1px solid" borderColor="gray.200" borderRadius="lg" p={4} textAlign="center">
-                      <Text fontSize="xs" color="gray.400">Nenhum comentário ainda.</Text>
-                    </Box>
-                  )}
-                </Section>
+                    </Section>
+                  )
+                })()}
 
               </Stack>
             ) : null}
