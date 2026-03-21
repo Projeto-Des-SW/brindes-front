@@ -92,12 +92,10 @@ const StatCard = ({
   title,
   value,
   subtitle,
-  trend,
 }: {
   title: string
   value: string
   subtitle: string
-  trend?: string
 }) => (
   <Box
     bg="white"
@@ -108,21 +106,9 @@ const StatCard = ({
     boxShadow="sm"
     position="relative"
   >
-    <Flex justify="space-between" align="flex-start">
-      <Text fontSize="xs" color="gray.500" fontWeight="600">
-        {title}
-      </Text>
-      {trend && (
-        <HStack gap={0} color="green.500">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M18 15l-6-6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <Text fontSize="xs" fontWeight="700" color="green.500" ml="2px">
-            {trend}
-          </Text>
-        </HStack>
-      )}
-    </Flex>
+    <Text fontSize="xs" color="gray.500" fontWeight="600">
+      {title}
+    </Text>
     <Text mt={2} fontSize="2xl" fontWeight="700" color="gray.900" lineHeight="1.2">
       {value}
     </Text>
@@ -886,26 +872,22 @@ export const VendasClientes = () => {
           <StatCard
             title="Total de Vendas"
             value={String(totalVendas)}
-            subtitle="+15% vs mês anterior"
-            trend="+15%"
+            subtitle="Total de vendas registradas"
           />
           <StatCard
             title="Em Andamento"
             value={String(emAndamento)}
             subtitle="Pedidos ativos"
-            trend="+8%"
           />
           <StatCard
             title="Concluídas"
             value={String(concluidas)}
-            subtitle="+8% vs mês anterior"
-            trend="+8%"
+            subtitle="Pedidos concluídos"
           />
           <StatCard
             title="Valor Faturado"
             value={formatBRL(valorFaturado)}
-            subtitle="+20% vs mês anterior"
-            trend="+20%"
+            subtitle="Valor total faturado"
           />
         </SimpleGrid>
 

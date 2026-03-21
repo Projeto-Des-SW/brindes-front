@@ -10,8 +10,6 @@ type Props = {
 }
 
 export const ProdutoInfo = ({ produto }: Props) => {
-  const [corSelecionada, setCorSelecionada] = useState(produto.cores[0])
-  const [impressaoSelecionada, setImpressaoSelecionada] = useState(produto.impressoes[0])
   const [quantidade, setQuantidade] = useState(produto.minimoUnidades)
   const { addToCart } = useCart()
   const navigate = useNavigate()
@@ -30,8 +28,8 @@ export const ProdutoInfo = ({ produto }: Props) => {
       nome: produto.nome,
       categoria: produto.categoria,
       preco: produto.preco,
-      cor: corSelecionada,
-      impressao: impressaoSelecionada,
+      cor: '',
+      impressao: '',
       quantidade,
       imagem: produto.imagens[0],
       minimoUnidades: produto.minimoUnidades,
@@ -71,60 +69,6 @@ export const ProdutoInfo = ({ produto }: Props) => {
       </Text>
 
       <Box w="full" borderTop="1px solid" borderColor="gray.100" />
-
-      {/* Seletor de cor */}
-      <VStack align="start" gap={2}>
-        <Text fontSize="sm" fontWeight="600" color="#1a1616">
-          Cor: <Text as="span" fontWeight="400">{corSelecionada}</Text>
-        </Text>
-        <HStack gap={2} flexWrap="wrap">
-          {produto.cores.map((cor) => (
-            <Button
-              key={cor}
-              size="sm"
-              px={4}
-              borderRadius="md"
-              fontWeight="500"
-              fontSize="sm"
-              bg={corSelecionada === cor ? '#1a1616' : 'white'}
-              color={corSelecionada === cor ? 'white' : '#1a1616'}
-              border="1px solid"
-              borderColor={corSelecionada === cor ? '#1a1616' : 'gray.300'}
-              _hover={{ borderColor: '#1a1616' }}
-              onClick={() => setCorSelecionada(cor)}
-            >
-              {cor}
-            </Button>
-          ))}
-        </HStack>
-      </VStack>
-
-      {/* Seletor de impressão */}
-      <VStack align="start" gap={2}>
-        <Text fontSize="sm" fontWeight="600" color="#1a1616">
-          Impressão: <Text as="span" fontWeight="400">{impressaoSelecionada}</Text>
-        </Text>
-        <HStack gap={2} flexWrap="wrap">
-          {produto.impressoes.map((imp) => (
-            <Button
-              key={imp}
-              size="sm"
-              px={4}
-              borderRadius="md"
-              fontWeight="500"
-              fontSize="sm"
-              bg={impressaoSelecionada === imp ? '#1a1616' : 'white'}
-              color={impressaoSelecionada === imp ? 'white' : '#1a1616'}
-              border="1px solid"
-              borderColor={impressaoSelecionada === imp ? '#1a1616' : 'gray.300'}
-              _hover={{ borderColor: '#1a1616' }}
-              onClick={() => setImpressaoSelecionada(imp)}
-            >
-              {imp}
-            </Button>
-          ))}
-        </HStack>
-      </VStack>
 
       {/* Quantidade */}
       <VStack align="start" gap={2} w="full">

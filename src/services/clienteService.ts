@@ -1,13 +1,22 @@
 import { apiUrl, API_ENDPOINTS } from '../config/api'
 import { authHeaders, getJsonOrThrow } from './http'
 
+export interface EnderecoDTO {
+  id?: number | null
+  rua?: string | null
+  numero?: string | null
+  cep?: string | null
+  cidade?: string | null
+  estado?: string | null
+}
+
 export interface ClientePerfilDTO {
   id: number
   nome: string
   email: string
   documento?: string | null
   telefone?: string | null
-  endereco?: string | null
+  endereco?: EnderecoDTO | null
   segmentacao?: string | null
   fotoPerfil?: string | null
 }
@@ -18,7 +27,13 @@ export interface AtualizarPerfilRequest {
   senha?: string
   documento?: string
   telefone?: string
-  endereco?: string
+  endereco?: {
+    rua?: string
+    numero?: string
+    cep?: string
+    cidade?: string
+    estado?: string
+  } | null
   fotoPerfil?: string
 }
 

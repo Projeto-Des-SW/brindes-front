@@ -90,7 +90,7 @@ export const MeusOrcamentos = () => {
       <Box as="main" py={10} flex="1">
         <Container maxW="6xl">
           {/* Breadcrumb simples: Início / Meus Orçamentos */}
-          <HStack spacing={2} fontSize="xs" color="gray.500" fontWeight="500">
+          <HStack gap={2} fontSize="xs" color="gray.500" fontWeight="500">
             <Text as="span">Início</Text>
             <Text>›</Text>
             <Text as="span" color="blue.600" fontWeight="600">
@@ -98,7 +98,7 @@ export const MeusOrcamentos = () => {
             </Text>
           </HStack>
 
-          <VStack align="start" spacing={2} mt={4} mb={6}>
+          <VStack align="start" gap={2} mt={4} mb={6}>
             <Text as="h1" fontSize="2xl" fontWeight="700" color="gray.900">
               Meus Orçamentos
             </Text>
@@ -108,26 +108,26 @@ export const MeusOrcamentos = () => {
           </VStack>
 
           {loading ? (
-            <VStack mt={10} align="center" spacing={3}>
+            <VStack mt={10} align="center" gap={3}>
               <Spinner size="lg" color="gray.600" />
               <Text fontSize="sm" color="gray.600">
                 Carregando seus orçamentos...
               </Text>
             </VStack>
           ) : error ? (
-            <VStack mt={10} align="center" spacing={3}>
+            <VStack mt={10} align="center" gap={3}>
               <Text fontSize="sm" color="red.500">
                 {error}
               </Text>
             </VStack>
           ) : orcamentos.length === 0 ? (
-            <VStack mt={10} align="center" spacing={3}>
+            <VStack mt={10} align="center" gap={3}>
               <Text fontSize="sm" color="gray.600">
                 Você ainda não possui orçamentos enviados.
               </Text>
             </VStack>
           ) : (
-            <VStack align="stretch" spacing={4}>
+            <VStack align="stretch" gap={4}>
               {orcamentos.map((orcamento) => (
               <Box
                 key={orcamento.id}
@@ -146,14 +146,14 @@ export const MeusOrcamentos = () => {
                   gap={3}
                   mb={4}
                 >
-                  <VStack align="flex-start" spacing={1}>
-                    <HStack spacing={3} align="center">
+                  <VStack align="flex-start" gap={1}>
+                    <HStack gap={3} align="center">
                       <Text fontSize="sm" fontWeight="600" color="gray.800">
                         Pedido {orcamento.codigo ?? `#${orcamento.id}`}
                       </Text>
                       {formatStatusBadge(orcamento.status as OrcamentoStatus)}
                     </HStack>
-                    <HStack spacing={4} fontSize="xs" color="gray.500">
+                    <HStack gap={4} fontSize="xs" color="gray.500">
                       <Text>
                         Criado em:{' '}
                         <Text as="span" fontWeight="600" color="gray.700">
@@ -187,7 +187,7 @@ export const MeusOrcamentos = () => {
 
                 <Stack
                   direction={{ base: 'column', md: 'row' }}
-                  spacing={4}
+                  gap={4}
                   align="stretch"
                 >
                   {orcamento.produtos.map((produto) => (
@@ -217,7 +217,7 @@ export const MeusOrcamentos = () => {
                         />
                       </Box>
 
-                      <VStack align="flex-start" spacing={1}>
+                      <VStack align="flex-start" gap={1}>
                         <Text fontSize="sm" fontWeight="600" color="gray.900">
                           {produto.nome}
                         </Text>
@@ -232,9 +232,9 @@ export const MeusOrcamentos = () => {
                     w={{ base: 'full', md: '180px' }}
                     align={{ base: 'flex-start', md: 'flex-end' }}
                     justify="space-between"
-                    spacing={2}
+                    gap={2}
                   >
-                    <VStack align={{ base: 'flex-start', md: 'flex-end' }} spacing={1}>
+                    <VStack align={{ base: 'flex-start', md: 'flex-end' }} gap={1}>
                       <Text fontSize="xs" color="gray.500">
                         Valor total
                       </Text>

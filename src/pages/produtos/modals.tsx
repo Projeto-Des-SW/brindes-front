@@ -20,7 +20,7 @@ import {
 } from '@chakra-ui/react'
 import { useAuth } from '../../context/useAuth'
 import { materiaPrimaService } from '../../services/parametrizacoes/materiaPrimaService'
-import type { ProdutoImagemRequest, ProdutoRequest } from '../../services/produtoService'
+import type { ProdutoImagemRequest, ProdutoRequest, ProdutoResponse } from '../../services/produtoService'
 
 const FieldLabel = ({ children }: { children: string }) => (
   <Text as="label" fontSize="sm" color="gray.700" fontWeight="600">
@@ -36,18 +36,22 @@ interface MateriaLocal {
 
 export const ProdutoUpsertDialog = ({
   open,
+  initialData,
   onClose,
   onSubmit,
 }: {
   open: boolean
+  initialData?: ProdutoResponse | null
   onClose: () => void
   onSubmit: (data: ProdutoRequest) => void
 }) => {
   const { token } = useAuth()
+  const isEditing = Boolean(initialData)
 
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [preco, setPreco] = useState('')
+  const [estoqueAtual, setEstoqueAtual] = useState('')
   const [status, setStatus] = useState('ATIVO')
   const [materias, setMaterias] = useState<MateriaLocal[]>([])
   const [condicoesPagamento, setCondicoesPagamento] = useState('')
@@ -79,23 +83,48 @@ export const ProdutoUpsertDialog = ({
     return () => clearTimeout(t)
   }, [open, token])
 
+  // Preenche os campos quando abre em modo de edição
   useEffect(() => {
     if (!open) return
     const t = setTimeout(() => {
-      setNome('')
-      setDescricao('')
-      setPreco('')
-      setStatus('ATIVO')
-      setMaterias([])
-      setCondicoesPagamento('')
-      setPrazoProducao('')
-      setObservacoes('')
+      if (initialData) {
+        setNome(initialData.nome ?? '')
+        setDescricao(initialData.descricao ?? '')
+        setPreco(initialData.precoVenda != null ? String(initialData.precoVenda) : '')
+        setEstoqueAtual(initialData.estoqueAtual != null ? String(initialData.estoqueAtual) : '')
+        setStatus(initialData.status ?? 'ATIVO')
+        setCondicoesPagamento(initialData.condicoesPagamento ?? '')
+        setPrazoProducao(initialData.prazoProducao ?? '')
+        setObservacoes(initialData.observacoes ?? '')
+        setMaterias(
+          (initialData.itensFichaTecnica ?? []).map((item) => ({
+            id: item.materiaPrimaId,
+            descricao: item.materiaPrimaNome,
+            quantidade: String(item.quantidadeNecessaria),
+          }))
+        )
+        const urls = (initialData.imagens ?? [])
+          .sort((a, b) => a.ordem - b.ordem)
+          .map((img) => img.url)
+        const padded = [...urls, '', '', '', ''].slice(0, 4)
+        setImagens(padded)
+      } else {
+        setNome('')
+        setDescricao('')
+        setPreco('')
+        setEstoqueAtual('')
+        setStatus('ATIVO')
+        setMaterias([])
+        setCondicoesPagamento('')
+        setPrazoProducao('')
+        setObservacoes('')
+        setImagens(['', '', '', ''])
+      }
       setSelectedMateriaId('')
-      setImagens(['', '', '', ''])
     }, 0)
 
     return () => clearTimeout(t)
-  }, [open])
+  }, [open, initialData])
 
   const addMateria = () => {
     const id = Number(selectedMateriaId)
@@ -137,6 +166,7 @@ export const ProdutoUpsertDialog = ({
       nome: nome.trim(),
       descricao: descricao.trim(),
       precoVenda: preco ? Number(preco) : null,
+      estoqueAtual: estoqueAtual ? Number(estoqueAtual) : null,
       status: status,
       condicoesPagamento: condicoesPagamento.trim() || undefined,
       prazoProducao: prazoProducao.trim(),
@@ -157,7 +187,7 @@ export const ProdutoUpsertDialog = ({
         <DialogContent maxW="980px">
           <DialogCloseTrigger />
           <DialogHeader>
-            <DialogTitle>Cadastrar produto</DialogTitle>
+            <DialogTitle>{isEditing ? 'Editar produto' : 'Cadastrar produto'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
             {error ? (
@@ -179,14 +209,26 @@ export const ProdutoUpsertDialog = ({
                 <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} bg="white" minH="80px" />
               </Stack>
 
-              {/* Preço + Status */}
-              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+              {/* Preço + Quantidade + Status */}
+              <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
                 <Stack gap={2}>
                   <FieldLabel>Preço *</FieldLabel>
                   <Input
                     value={preco}
                     onChange={(e) => setPreco(e.target.value)}
                     placeholder="Ex: 10.50"
+                    bg="white"
+                  />
+                </Stack>
+
+                <Stack gap={2}>
+                  <FieldLabel>Quantidade Disponível</FieldLabel>
+                  <Input
+                    value={estoqueAtual}
+                    onChange={(e) => setEstoqueAtual(e.target.value)}
+                    placeholder="Ex: 100"
+                    type="number"
+                    min={0}
                     bg="white"
                   />
                 </Stack>
@@ -391,7 +433,59 @@ export const ProdutoUpsertDialog = ({
                 Cancelar
               </Button>
               <Button bg="blue.600" color="white" _hover={{ bg: 'blue.700' }} onClick={handleSubmit} disabled={!canSubmit}>
-                Cadastrar
+                {isEditing ? 'Salvar alterações' : 'Cadastrar'}
+              </Button>
+            </HStack>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPositioner>
+    </DialogRoot>
+  )
+}
+
+export const ConfirmDeleteDialog = ({
+  open,
+  title,
+  description,
+  submitting,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean
+  title: string
+  description: string
+  submitting?: boolean
+  error?: string | null
+  onClose: () => void
+  onConfirm: () => void
+}) => {
+  return (
+    <DialogRoot open={open} onOpenChange={(e) => (!e.open ? onClose() : null)}>
+      <DialogBackdrop />
+      <DialogPositioner>
+        <DialogContent maxW="520px">
+          <DialogCloseTrigger />
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Text fontSize="sm" color="gray.700">
+              {description}
+            </Text>
+            {error ? (
+              <Text mt={3} fontSize="sm" color="red.500">
+                {error}
+              </Text>
+            ) : null}
+          </DialogBody>
+          <DialogFooter>
+            <HStack justify="flex-end" gap={3} w="full">
+              <Button variant="outline" onClick={onClose} disabled={Boolean(submitting)}>
+                Cancelar
+              </Button>
+              <Button bg="red.600" color="white" _hover={{ bg: 'red.700' }} onClick={onConfirm} disabled={Boolean(submitting)}>
+                Excluir
               </Button>
             </HStack>
           </DialogFooter>

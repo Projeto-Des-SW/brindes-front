@@ -82,7 +82,7 @@ export const HomeProdutosDestaque = () => {
   }, [])
 
   return (
-    <Box bg="gray.50" py={14}>
+    <Box id="produtos-destaque" bg="gray.50" py={14}>
       <Container maxW="7xl">
         <VStack gap={2} mb={10}>
           <Heading as="h2" fontSize="2xl" fontWeight="700" color="#1a1616" textAlign="center">

@@ -69,11 +69,29 @@ export interface MovimentacaoResponse {
   id: number
   data: string // ISO local datetime
   tipo: TipoMovimentacao | string
+  materiaPrimaId: number
   materiaPrima: string
   quantidade: number
+  fornecedorId?: number | null
   fornecedor: string
   responsavel: string
+  destinoId?: number | null
   destino: string
+  valorUnitario?: number | null
+  motivo?: string | null
   valorTotal: number
 }
+
+export interface CriarMovimentacaoRequest {
+  tipo: TipoMovimentacao
+  materiaPrimaId: number
+  quantidade: number
+  fornecedorId?: number | null
+  destinoId?: number | null
+  valorUnitario?: number | null
+  data?: string | null
+  motivo?: string | null
+}
+
+export interface AtualizarMovimentacaoRequest extends CriarMovimentacaoRequest {}
 

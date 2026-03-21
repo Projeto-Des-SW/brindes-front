@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Button, Container, Flex, HStack, Heading, Stack, Text, SimpleGrid } from '@chakra-ui/react'
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '@chakra-ui/react'
 import { SectionCard, SearchInput, SelectLike } from '../estoque/components'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 
@@ -7,8 +8,8 @@ import { useAuth } from '../../context/useAuth'
 import { produtoService } from '../../services/produtoService'
 import type { ProdutoResponse, ProdutoRequest } from '../../services/produtoService'
 import { formatBRL, formatInt } from '../estoque/format'
-import { EyeIcon } from '../../components/icons'
-import ProdutoUpsertDialog from './modals'
+import { PencilIcon } from '../../components/icons'
+import ProdutoUpsertDialog, { ConfirmDeleteDialog } from './modals'
 
 const StatusProdutoPill = ({ status }: { status: string }) => {
   const isAtivo = status === 'ATIVO'
@@ -112,6 +113,16 @@ export const ProdutosPage = () => {
   const [loadingProdutos, setLoadingProdutos] = useState(true)
   const [errorProdutos, setErrorProdutos] = useState<string | null>(null)
 
+  // Edição
+  const [produtoEditando, setProdutoEditando] = useState<ProdutoResponse | null>(null)
+  const [openEdicao, setOpenEdicao] = useState(false)
+
+  // Exclusão
+  const [produtoExcluindo, setProdutoExcluindo] = useState<ProdutoResponse | null>(null)
+  const [openDelete, setOpenDelete] = useState(false)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   const fetchProdutos = () => {
     const controller = new AbortController()
     setLoadingProdutos(true)
@@ -174,6 +185,46 @@ export const ProdutosPage = () => {
     } catch (e) {
       console.error('Erro ao cadastrar produto:', e)
       setErrorProdutos(e instanceof Error ? e.message : 'Erro ao cadastrar produto')
+    }
+  }
+
+  const handleAbrirEdicao = (produto: ProdutoResponse) => {
+    setProdutoEditando(produto)
+    setOpenEdicao(true)
+  }
+
+  const handleEditarProduto = async (data: ProdutoRequest) => {
+    if (!produtoEditando) return
+    try {
+      await produtoService.atualizar(produtoEditando.id, data, token)
+      setOpenEdicao(false)
+      setProdutoEditando(null)
+      fetchProdutos()
+    } catch (e) {
+      console.error('Erro ao editar produto:', e)
+      setErrorProdutos(e instanceof Error ? e.message : 'Erro ao editar produto')
+    }
+  }
+
+  const handleAbrirDelete = (produto: ProdutoResponse) => {
+    setProdutoExcluindo(produto)
+    setDeleteError(null)
+    setOpenDelete(true)
+  }
+
+  const handleConfirmarDelete = async () => {
+    if (!produtoExcluindo) return
+    setDeleteSubmitting(true)
+    setDeleteError(null)
+    try {
+      await produtoService.remover(produtoExcluindo.id, token)
+      setOpenDelete(false)
+      setProdutoExcluindo(null)
+      fetchProdutos()
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir produto')
+    } finally {
+      setDeleteSubmitting(false)
     }
   }
 
@@ -285,9 +336,21 @@ export const ProdutosPage = () => {
                         </Box>
 
                         <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-                          <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ver detalhes" onClick={() => { }}>
-                            <EyeIcon size={16} />
-                          </Button>
+                          <MenuRoot positioning={{ placement: 'bottom-end' }}>
+                            <MenuTrigger asChild>
+                              <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto">
+                                <PencilIcon size={16} />
+                              </Button>
+                            </MenuTrigger>
+                            <MenuContent>
+                              <MenuItem value="edit" onClick={() => handleAbrirEdicao(p)}>
+                                Editar
+                              </MenuItem>
+                              <MenuItem value="delete" onClick={() => handleAbrirDelete(p)} color="red.600">
+                                Excluir
+                              </MenuItem>
+                            </MenuContent>
+                          </MenuRoot>
                         </Box>
                       </Box>
                     )
@@ -298,10 +361,38 @@ export const ProdutosPage = () => {
           </SectionCard>
         </Stack>
       </Container>
+
+      {/* Modal de Cadastro */}
       <ProdutoUpsertDialog
         open={openCadastro}
         onClose={() => setOpenCadastro(false)}
         onSubmit={handleCriarProduto}
+      />
+
+      {/* Modal de Edição */}
+      <ProdutoUpsertDialog
+        open={openEdicao}
+        initialData={produtoEditando}
+        onClose={() => {
+          setOpenEdicao(false)
+          setProdutoEditando(null)
+        }}
+        onSubmit={handleEditarProduto}
+      />
+
+      {/* Diálogo de Confirmação de Exclusão */}
+      <ConfirmDeleteDialog
+        open={openDelete}
+        title="Excluir produto"
+        description={produtoExcluindo ? `Tem certeza que deseja excluir o produto "${produtoExcluindo.nome}"? Esta ação não pode ser desfeita.` : ''}
+        submitting={deleteSubmitting}
+        error={deleteError}
+        onClose={() => {
+          setOpenDelete(false)
+          setProdutoExcluindo(null)
+          setDeleteError(null)
+        }}
+        onConfirm={handleConfirmarDelete}
       />
     </Box>
   )

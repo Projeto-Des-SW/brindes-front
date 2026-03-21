@@ -63,6 +63,7 @@ export interface ProdutoRequest {
     custoProducao?: number | null
     categoriaId?: number | null
     estoqueMinimo?: number | null
+    estoqueAtual?: number | null
     status?: string
     condicoesPagamento?: string
     prazoProducao?: string
