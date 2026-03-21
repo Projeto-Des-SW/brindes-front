@@ -14,7 +14,6 @@ import type { CategoriaRow, FornecedorRow, LocalEstoqueRow, MateriaPrimaRow, Sta
 import { AppBreadcrumbs } from '../../../components/AppBreadcrumbs'
 import {
   CategoriaUpsertDialog,
-  ConfirmDeleteDialog,
   FornecedorUpsertDialog,
   LocalEstoqueUpsertDialog,
   MateriaPrimaUpsertDialog,
@@ -77,17 +76,6 @@ export const ParametrizacoesPage = () => {
   const [categoriaEditing, setCategoriaEditing] = useState<CategoriaRow | null>(null)
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false)
   const [categoriaError, setCategoriaError] = useState<string | null>(null)
-
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<
-    | { type: 'fornecedor'; row: FornecedorRow }
-    | { type: 'local'; row: LocalEstoqueRow }
-    | { type: 'materia'; row: MateriaPrimaRow }
-    | { type: 'categoria'; row: CategoriaRow }
-    | null
-  >(null)
 
   const onlyDigits = (s: string) => (s ?? '').replace(/\D/g, '')
 
@@ -289,6 +277,18 @@ export const ParametrizacoesPage = () => {
     return <SearchInput value={search} placeholder="Buscar" onChange={setSearch} minW="220px" />
   }
 
+  const handleToggle = async (type: 'fornecedor' | 'materia' | 'local' | 'categoria', id: number) => {
+    try {
+      if (type === 'fornecedor') await fornecedorService.toggleStatus(id, token)
+      else if (type === 'materia') await materiaPrimaService.toggleStatus(id, token)
+      else if (type === 'local') await localEstoqueService.toggleStatus(id, token)
+      else await categoriaService.toggleStatus(id, token)
+      await reloadAll()
+    } catch {
+      // ignore
+    }
+  }
+
   const renderTabela = () => {
     if (tab === 'fornecedores') {
       return (
@@ -300,11 +300,7 @@ export const ParametrizacoesPage = () => {
             setFornecedorError(null)
             setFornecedorDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'fornecedor', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('fornecedor', row.id)}
         />
       )
     }
@@ -318,11 +314,7 @@ export const ParametrizacoesPage = () => {
             setMateriaError(null)
             setMateriaDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'materia', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('materia', row.id)}
         />
       )
     }
@@ -336,11 +328,7 @@ export const ParametrizacoesPage = () => {
             setLocalError(null)
             setLocalDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'local', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('local', row.id)}
         />
       )
     }
@@ -353,11 +341,7 @@ export const ParametrizacoesPage = () => {
           setCategoriaError(null)
           setCategoriaDialogOpen(true)
         }}
-        onDelete={(row) => {
-          setDeleteTarget({ type: 'categoria', row })
-          setDeleteError(null)
-          setDeleteDialogOpen(true)
-        }}
+        onToggle={(row) => handleToggle('categoria', row.id)}
       />
     )
   }
@@ -622,58 +606,6 @@ export const ParametrizacoesPage = () => {
           }}
         />
 
-        <ConfirmDeleteDialog
-          open={deleteDialogOpen}
-          submitting={deleteSubmitting}
-          error={deleteError}
-          title={
-            deleteTarget?.type === 'fornecedor'
-              ? 'Excluir fornecedor'
-              : deleteTarget?.type === 'local'
-                ? 'Excluir local de estoque'
-                : deleteTarget?.type === 'categoria'
-                  ? 'Excluir categoria'
-                  : 'Excluir matéria-prima'
-          }
-          description={
-            deleteTarget?.type === 'fornecedor'
-              ? `Tem certeza que deseja excluir o fornecedor "${deleteTarget.row.nome}"?`
-              : deleteTarget?.type === 'local'
-                ? `Tem certeza que deseja excluir o local "${deleteTarget.row.nome}"?`
-                : deleteTarget?.type === 'categoria'
-                  ? `Tem certeza que deseja excluir a categoria "${deleteTarget.row.nome}"?`
-                  : deleteTarget
-                    ? `Tem certeza que deseja excluir a matéria-prima "${(deleteTarget.row as MateriaPrimaRow).descricao}"?`
-                    : ''
-          }
-          onClose={() => {
-            setDeleteDialogOpen(false)
-            setDeleteTarget(null)
-          }}
-          onConfirm={() => {
-            if (!deleteTarget) return
-            setDeleteSubmitting(true)
-            setDeleteError(null)
-
-            const run =
-              deleteTarget.type === 'fornecedor'
-                ? fornecedorService.deleteFornecedor(deleteTarget.row.id, token)
-                : deleteTarget.type === 'local'
-                  ? localEstoqueService.deleteLocalEstoque(deleteTarget.row.id, token)
-                  : deleteTarget.type === 'categoria'
-                    ? categoriaService.deleteCategoria(deleteTarget.row.id, token)
-                    : materiaPrimaService.deleteMateriaPrima(deleteTarget.row.id, token)
-
-            run
-              .then(async () => {
-                await reloadAll()
-                setDeleteDialogOpen(false)
-                setDeleteTarget(null)
-              })
-              .catch((e) => setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir'))
-              .finally(() => setDeleteSubmitting(false))
-          }}
-        />
       </Container>
     </Box>
   )

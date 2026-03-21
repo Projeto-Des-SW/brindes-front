@@ -32,15 +32,18 @@ export interface MateriaPrimaRow {
   localEstoqueId?: number | null
   estoqueAtual: number
   estoqueMinimo: number
+  status?: StatusAtivo
 }
 
 export interface LocalEstoqueRow {
   id: number
   nome: string
   descricao: string
+  status?: StatusAtivo
 }
 
 export interface CategoriaRow {
   id: number
   nome: string
+  status?: StatusAtivo
 }
