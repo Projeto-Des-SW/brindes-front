@@ -252,8 +252,8 @@ const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado
     <Box border="1px solid" borderColor="gray.200" borderRadius="md" overflow="hidden">
       {/* Imagem */}
       {imagemSrc ? (
-        <Box bg="gray.100" maxH="280px" overflow="hidden">
-          <Image src={imagemSrc} alt={arte.produtoNome} w="full" maxH="280px" objectFit="cover" />
+        <Box bg="gray.100">
+          <Image src={imagemSrc} alt={arte.produtoNome} w="full" objectFit="contain" />
         </Box>
       ) : (
         <Box bg="gray.100" h="120px" display="flex" alignItems="center" justifyContent="center">
