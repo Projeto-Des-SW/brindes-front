@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -14,6 +14,7 @@ import {
   HStack,
   Input,
   SimpleGrid,
+  Spinner,
   Stack,
   Text,
   Textarea,
@@ -34,6 +35,13 @@ interface MateriaLocal {
   quantidade: string
 }
 
+const ErrorAlert = ({ message }: { message: string }) => (
+  <Box bg="red.50" border="1px solid" borderColor="red.300" borderRadius="md" px={4} py={3} mb={3} display="flex" alignItems="flex-start" gap={2}>
+    <Text color="red.500" fontWeight="bold" fontSize="md" lineHeight="1.4" flexShrink={0}>✕</Text>
+    <Text fontSize="sm" color="red.700" fontWeight="600" lineHeight="1.5">{message}</Text>
+  </Box>
+)
+
 export const ProdutoUpsertDialog = ({
   open,
   initialData,
@@ -43,10 +51,13 @@ export const ProdutoUpsertDialog = ({
   open: boolean
   initialData?: ProdutoResponse | null
   onClose: () => void
-  onSubmit: (data: ProdutoRequest) => void
+  onSubmit: (data: ProdutoRequest) => Promise<void>
 }) => {
   const { token } = useAuth()
   const isEditing = Boolean(initialData)
+
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -83,27 +94,32 @@ export const ProdutoUpsertDialog = ({
     return () => clearTimeout(t)
   }, [open, token])
 
+  const initialDataRef = useRef(initialData)
+  initialDataRef.current = initialData
+
   // Preenche os campos quando abre em modo de edição
   useEffect(() => {
     if (!open) return
+    setSubmitError(null)
     const t = setTimeout(() => {
-      if (initialData) {
-        setNome(initialData.nome ?? '')
-        setDescricao(initialData.descricao ?? '')
-        setPreco(initialData.precoVenda != null ? String(initialData.precoVenda) : '')
-        setEstoqueAtual(initialData.estoqueAtual != null ? String(initialData.estoqueAtual) : '')
-        setStatus(initialData.status ?? 'ATIVO')
-        setCondicoesPagamento(initialData.condicoesPagamento ?? '')
-        setPrazoProducao(initialData.prazoProducao ?? '')
-        setObservacoes(initialData.observacoes ?? '')
+      const data = initialDataRef.current
+      if (data) {
+        setNome(data.nome ?? '')
+        setDescricao(data.descricao ?? '')
+        setPreco(data.precoVenda != null ? String(data.precoVenda) : '')
+        setEstoqueAtual(data.estoqueAtual != null ? String(data.estoqueAtual) : '')
+        setStatus(data.status ?? 'ATIVO')
+        setCondicoesPagamento(data.condicoesPagamento ?? '')
+        setPrazoProducao(data.prazoProducao ?? '')
+        setObservacoes(data.observacoes ?? '')
         setMaterias(
-          (initialData.itensFichaTecnica ?? []).map((item) => ({
+          (data.itensFichaTecnica ?? []).map((item) => ({
             id: item.materiaPrimaId,
             descricao: item.materiaPrimaNome,
             quantidade: String(item.quantidadeNecessaria),
           }))
         )
-        const urls = (initialData.imagens ?? [])
+        const urls = (data.imagens ?? [])
           .sort((a, b) => a.ordem - b.ordem)
           .map((img) => img.url)
         const padded = [...urls, '', '', '', ''].slice(0, 4)
@@ -124,7 +140,8 @@ export const ProdutoUpsertDialog = ({
     }, 0)
 
     return () => clearTimeout(t)
-  }, [open, initialData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const addMateria = () => {
     const id = Number(selectedMateriaId)
@@ -156,7 +173,8 @@ export const ProdutoUpsertDialog = ({
     materias.every((m) => m.quantidade && Number(m.quantidade) > 0) &&
     imagensValidas.length >= 1
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return
     const imagensPayload: ProdutoImagemRequest[] = imagensValidas.map((url, idx) => ({
       url: url.trim(),
       ordem: idx + 1,
@@ -177,7 +195,15 @@ export const ProdutoUpsertDialog = ({
       })),
       imagens: imagensPayload,
     }
-    onSubmit(data)
+    setSubmitError(null)
+    setSubmitting(true)
+    try {
+      await onSubmit(data)
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Erro ao salvar produto')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -190,11 +216,8 @@ export const ProdutoUpsertDialog = ({
             <DialogTitle>{isEditing ? 'Editar produto' : 'Cadastrar produto'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            {error ? (
-              <Text mb={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {submitError ? <ErrorAlert message={submitError} /> : null}
+            {error ? <ErrorAlert message={error} /> : null}
 
             <Stack gap={4}>
               {/* Nome */}
@@ -432,8 +455,8 @@ export const ProdutoUpsertDialog = ({
               <Button variant="outline" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button bg="blue.600" color="white" _hover={{ bg: 'blue.700' }} onClick={handleSubmit} disabled={!canSubmit}>
-                {isEditing ? 'Salvar alterações' : 'Cadastrar'}
+              <Button bg="blue.600" color="white" _hover={{ bg: 'blue.700' }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
+                {submitting ? <HStack gap={2}><Spinner size="sm" /><span>Salvando...</span></HStack> : isEditing ? 'Salvar alterações' : 'Cadastrar'}
               </Button>
             </HStack>
           </DialogFooter>
@@ -473,11 +496,7 @@ export const ConfirmDeleteDialog = ({
             <Text fontSize="sm" color="gray.700">
               {description}
             </Text>
-            {error ? (
-              <Text mt={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <ErrorAlert message={error} /> : null}
           </DialogBody>
           <DialogFooter>
             <HStack justify="flex-end" gap={3} w="full">
@@ -485,7 +504,7 @@ export const ConfirmDeleteDialog = ({
                 Cancelar
               </Button>
               <Button bg="red.600" color="white" _hover={{ bg: 'red.700' }} onClick={onConfirm} disabled={Boolean(submitting)}>
-                Excluir
+                {submitting ? <HStack gap={2}><Spinner size="sm" /><span>Excluindo...</span></HStack> : 'Excluir'}
               </Button>
             </HStack>
           </DialogFooter>

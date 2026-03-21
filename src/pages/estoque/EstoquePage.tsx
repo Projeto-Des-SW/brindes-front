@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Button, Container, DialogBackdrop, DialogBody, DialogCloseTrigger, DialogContent, DialogFooter, DialogHeader, DialogPositioner,
-   DialogRoot, DialogTitle, Flex, HStack, Heading, Input, Stack, Text, Textarea } from '@chakra-ui/react'
+   DialogRoot, DialogTitle, Flex, HStack, Heading, Input, Spinner, Stack, Text, Textarea } from '@chakra-ui/react'
 import { CardsResumoGrid, MovimentacoesTable, ProdutosTable, SearchInput, SectionCard, SelectLike } from './components'
 import { useAuth } from '../../context/useAuth'
 import { estoqueService } from '../../services/estoqueService'
@@ -46,7 +46,7 @@ export const EstoquePage = () => {
   const [loadingDetalhe, setLoadingDetalhe] = useState(false)
   const [errorDetalhe, setErrorDetalhe] = useState<string | null>(null)
 
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [refreshKey] = useState(0)
 
   const [viewMovOpen, setViewMovOpen] = useState(false)
   const [viewingMov, setViewingMov] = useState<MovimentacaoRow | null>(null)
@@ -268,6 +268,16 @@ export const EstoquePage = () => {
     return () => controller.abort()
   }
 
+  const reloadData = async () => {
+    await Promise.all([
+      estoqueService.getResumo(token).then(setResumo),
+      estoqueService.getItens({ search: buscaProduto, status: statusFiltro, page: 1, pageSize: 20 }, token)
+        .then((page) => setProdutos(page.items)),
+      estoqueService.getMovimentacoes({ search: buscaMov, tipo: tipoMovFiltro, page: 1, pageSize: 50 }, token)
+        .then((page) => setMovimentacoes((page.items ?? []).map(mapMovResponseToRow))),
+    ])
+  }
+
   const onViewMov = (row: MovimentacaoRow) => {
     setViewingMov(row)
     setViewMovOpen(true)
@@ -281,15 +291,22 @@ export const EstoquePage = () => {
       setDeletingMov(true)
       setErrorDeleteMov(null)
       await estoqueService.excluirMovimentacao(viewingMov.id, token)
+      await reloadData()
       setViewMovOpen(false)
       setViewingMov(null)
       setConfirmingDelete(false)
-      setRefreshKey((k) => k + 1)
     } catch (e) {
       setErrorDeleteMov(e instanceof Error ? e.message : 'Erro ao excluir movimentação')
     } finally {
       setDeletingMov(false)
     }
+  }
+
+  const onDeleteFromTable = (row: MovimentacaoRow) => {
+    setViewingMov(row)
+    setViewMovOpen(true)
+    setConfirmingDelete(true)
+    setErrorDeleteMov(null)
   }
 
   const onSubmitMov = async () => {
@@ -317,9 +334,9 @@ export const EstoquePage = () => {
       } else {
         await estoqueService.criarMovimentacao(payload, token)
       }
+      await reloadData()
       setMovDialogOpen(false)
       setEditingMov(null)
-      setRefreshKey((k) => k + 1)
     } catch (e) {
       setErrorSalvarMov(e instanceof Error ? e.message : 'Erro ao salvar movimentação')
     } finally {
@@ -442,6 +459,8 @@ export const EstoquePage = () => {
               <MovimentacoesTable
                 rows={movimentacoes}
                 onView={onViewMov}
+                onEdit={(row) => { ensureOptsLoaded(); openEditMov(row) }}
+                onDelete={onDeleteFromTable}
               />
             )}
           </SectionCard>
@@ -607,9 +626,10 @@ export const EstoquePage = () => {
               </DialogHeader>
               <DialogBody>
                 {errorSalvarMov ? (
-                  <Text mb={3} fontSize="sm" color="red.500">
-                    {errorSalvarMov}
-                  </Text>
+                  <Box bg="red.50" border="1px solid" borderColor="red.300" borderRadius="md" px={4} py={3} mb={3} display="flex" alignItems="flex-start" gap={2}>
+                    <Text color="red.500" fontWeight="bold" fontSize="md" lineHeight="1.4" flexShrink={0}>✕</Text>
+                    <Text fontSize="sm" color="red.700" fontWeight="600" lineHeight="1.5">{errorSalvarMov}</Text>
+                  </Box>
                 ) : null}
 
                 <Stack gap={3}>
@@ -801,7 +821,7 @@ export const EstoquePage = () => {
                     onClick={onSubmitMov}
                     disabled={savingMov}
                   >
-                    {savingMov ? 'Salvando...' : 'Salvar'}
+                    {savingMov ? <HStack gap={2}><Spinner size="sm" /><span>Salvando...</span></HStack> : editingMov ? 'Salvar' : 'Cadastrar'}
                   </Button>
                 </HStack>
               </DialogFooter>

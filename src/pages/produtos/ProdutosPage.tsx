@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Flex, HStack, Heading, Stack, Text, SimpleGrid } from '@chakra-ui/react'
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '@chakra-ui/react'
+import { Box, Button, Container, Flex, HStack, Heading, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Stack, Text } from '@chakra-ui/react'
 import { SectionCard, SearchInput, SelectLike } from '../estoque/components'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 
@@ -53,9 +52,6 @@ const ProdutoCard = ({
         <Box color="gray.400" flexShrink={0}>{icon}</Box>
         <Text fontSize="xs" color="gray.500" fontWeight="600">{title}</Text>
       </Flex>
-      <Box color="gray.400">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 17l9.2-9.2M17 17V8H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </Box>
     </Flex>
     <Text mt={3} fontSize="2xl" fontWeight="800" color="gray.900" letterSpacing="-0.02em">
       {value}
@@ -67,16 +63,14 @@ const ProdutosResumoGrid = ({
   totalProdutos,
   totalAtivos,
   produtosBloqueados,
-  produtosSemMovimentacao,
 }: {
   totalProdutos: number
   totalAtivos: number
   produtosBloqueados: number
-  produtosSemMovimentacao: number
 }) => {
   const formatNum = (n: number) => n.toLocaleString('pt-BR')
   return (
-    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
+    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
       <ProdutoCard
         title="Total de Produtos"
         value={formatNum(totalProdutos)}
@@ -91,11 +85,6 @@ const ProdutosResumoGrid = ({
         title="Produtos Inativos"
         value={formatNum(produtosBloqueados)}
         icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" /><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}
-      />
-      <ProdutoCard
-        title="Produtos sem movimentação"
-        value={produtosSemMovimentacao ? formatNum(produtosSemMovimentacao) : '\u2014'}
-        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M16 7V5a4 4 0 0 0-8 0v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}
       />
     </SimpleGrid>
   )
@@ -175,17 +164,16 @@ export const ProdutosPage = () => {
   const totalProdutos = produtos.length
   const totalAtivos = produtos.filter((p) => p.status === 'ATIVO').length
   const produtosBloqueados = produtos.filter((p) => p.status === 'INATIVO').length
-  const produtosSemMovimentacao = 0
+
+  const reloadProdutos = async () => {
+    const page = await produtoService.listar({ page: 1, pageSize: 50 }, token)
+    setProdutos(page.items)
+  }
 
   const handleCriarProduto = async (data: ProdutoRequest) => {
-    try {
-      await produtoService.criar(data, token)
-      setOpenCadastro(false)
-      fetchProdutos()
-    } catch (e) {
-      console.error('Erro ao cadastrar produto:', e)
-      setErrorProdutos(e instanceof Error ? e.message : 'Erro ao cadastrar produto')
-    }
+    await produtoService.criar(data, token)
+    await reloadProdutos()
+    setOpenCadastro(false)
   }
 
   const handleAbrirEdicao = (produto: ProdutoResponse) => {
@@ -195,15 +183,10 @@ export const ProdutosPage = () => {
 
   const handleEditarProduto = async (data: ProdutoRequest) => {
     if (!produtoEditando) return
-    try {
-      await produtoService.atualizar(produtoEditando.id, data, token)
-      setOpenEdicao(false)
-      setProdutoEditando(null)
-      fetchProdutos()
-    } catch (e) {
-      console.error('Erro ao editar produto:', e)
-      setErrorProdutos(e instanceof Error ? e.message : 'Erro ao editar produto')
-    }
+    await produtoService.atualizar(produtoEditando.id, data, token)
+    await reloadProdutos()
+    setOpenEdicao(false)
+    setProdutoEditando(null)
   }
 
   const handleAbrirDelete = (produto: ProdutoResponse) => {
@@ -218,9 +201,9 @@ export const ProdutosPage = () => {
     setDeleteError(null)
     try {
       await produtoService.remover(produtoExcluindo.id, token)
+      await reloadProdutos()
       setOpenDelete(false)
       setProdutoExcluindo(null)
-      fetchProdutos()
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir produto')
     } finally {
@@ -248,7 +231,6 @@ export const ProdutosPage = () => {
           totalProdutos={totalProdutos}
           totalAtivos={totalAtivos}
           produtosBloqueados={produtosBloqueados}
-          produtosSemMovimentacao={produtosSemMovimentacao}
         />
 
         <Stack mt={6} gap={6}>
@@ -336,21 +318,27 @@ export const ProdutosPage = () => {
                         </Box>
 
                         <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-                          <MenuRoot positioning={{ placement: 'bottom-end' }}>
-                            <MenuTrigger asChild>
+                          <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+                            <PopoverTrigger asChild>
                               <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto">
                                 <PencilIcon size={16} />
                               </Button>
-                            </MenuTrigger>
-                            <MenuContent>
-                              <MenuItem value="edit" onClick={() => handleAbrirEdicao(p)}>
-                                Editar
-                              </MenuItem>
-                              <MenuItem value="delete" onClick={() => handleAbrirDelete(p)} color="red.600">
-                                Excluir
-                              </MenuItem>
-                            </MenuContent>
-                          </MenuRoot>
+                            </PopoverTrigger>
+                            <PopoverPositioner>
+                              <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+                                <PopoverBody p={1}>
+                                  <Stack gap={0}>
+                                    <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={() => handleAbrirEdicao(p)}>
+                                      Editar
+                                    </Button>
+                                    <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" color="red.600" _hover={{ bg: 'red.50' }} onClick={() => handleAbrirDelete(p)}>
+                                      Excluir
+                                    </Button>
+                                  </Stack>
+                                </PopoverBody>
+                              </PopoverContent>
+                            </PopoverPositioner>
+                          </PopoverRoot>
                         </Box>
                       </Box>
                     )

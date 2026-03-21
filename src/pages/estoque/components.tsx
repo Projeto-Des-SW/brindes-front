@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Badge, Box, Button, Flex, Input, SimpleGrid, Text } from '@chakra-ui/react'
-import { EyeIcon, SearchIcon } from '../../components/icons'
+import { Badge, Box, Button, Flex, Input, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Stack, Text } from '@chakra-ui/react'
+import { EyeIcon, PencilIcon, SearchIcon } from '../../components/icons'
 import type { MovimentacaoRow, ProdutoEstoqueRow, StatusEstoque, TipoMovimentacao } from './types'
 import { formatBRL, formatInt } from './format'
 
@@ -74,7 +74,7 @@ export const CardsResumoGrid = ({
 
   const dash = '—'
   return (
-    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
+    <SimpleGrid mt={5} columns={{ base: 1, md: 3 }} gap={4}>
       <CardResumo
         title="Valor Total em Estoque"
         value={loading ? dash : formatBRL(Number(v.valorTotalEmEstoque ?? 0))}
@@ -88,11 +88,6 @@ export const CardsResumoGrid = ({
       <CardResumo
         title="Total de Matérias Primas"
         value={loading ? dash : formatInt(Number(v.totalMateriasPrimas ?? 0))}
-        subtitle=""
-      />
-      <CardResumo
-        title="Produtos sem movimentação"
-        value={loading ? dash : formatInt(Number(v.produtosSemMovimentacao ?? 0))}
         subtitle=""
       />
     </SimpleGrid>
@@ -335,6 +330,47 @@ export const ProdutosTable = ({ rows, onView }: { rows: ProdutoEstoqueRow[]; onV
   )
 }
 
+const RowActionsMovPopover = ({
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  onView?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+}) => (
+  <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" h="28px" w="28px" p={0}>
+        <PencilIcon size={16} />
+      </Button>
+    </PopoverTrigger>
+    <PopoverPositioner>
+      <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+        <PopoverBody p={1}>
+          <Stack gap={0}>
+            {onView && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={onView}>
+                Visualizar
+              </Button>
+            )}
+            {onEdit && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={onEdit}>
+                Editar
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" color="red.600" _hover={{ bg: 'red.50' }} onClick={onDelete}>
+                Excluir
+              </Button>
+            )}
+          </Stack>
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverPositioner>
+  </PopoverRoot>
+)
+
 const badgePaletteFromTipo = (tipo: TipoMovimentacao) => {
   return tipo === 'Entrada' ? 'blue' : 'orange'
 }
@@ -342,9 +378,13 @@ const badgePaletteFromTipo = (tipo: TipoMovimentacao) => {
 export const MovimentacoesTable = ({
   rows,
   onView,
+  onEdit,
+  onDelete,
 }: {
   rows: MovimentacaoRow[]
   onView?: (row: MovimentacaoRow) => void
+  onEdit?: (row: MovimentacaoRow) => void
+  onDelete?: (row: MovimentacaoRow) => void
 }) => {
   const columns = [
     { label: 'Data', w: '90px' },
@@ -404,18 +444,11 @@ export const MovimentacoesTable = ({
             {formatBRL(r.valorTotal)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <Button
-              variant="ghost"
-              size="sm"
-              h="28px"
-              w="28px"
-              p={0}
-              aria-label="Ver movimentação"
-              onClick={onView ? () => onView(r) : undefined}
-              disabled={!onView}
-            >
-              <EyeIcon size={16} />
-            </Button>
+            <RowActionsMovPopover
+              onView={onView ? () => onView(r) : undefined}
+              onEdit={onEdit ? () => onEdit(r) : undefined}
+              onDelete={onDelete ? () => onDelete(r) : undefined}
+            />
           </Box>
         </Box>
       ))}
