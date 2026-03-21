@@ -10,12 +10,14 @@ import { HomeProdutosDestaque } from '../components/home/HomeProdutosDestaque'
 
 export const Home = () => {
   return (
-    <Box minH="100vh" bg="white">
+    <Box minH="100vh" bg="white" display="flex" flexDirection="column">
       <HomeNavbar />
-      <HomeHeroSection />
-      <HomeCategoriasSection />
-      <HomeProdutosDestaque />
-      <HomeBeneficiosSection />
+      <Box flex="1">
+        <HomeHeroSection />
+        <HomeCategoriasSection />
+        <HomeProdutosDestaque />
+        <HomeBeneficiosSection />
+      </Box>
       <HomeFooter />
     </Box>
   )

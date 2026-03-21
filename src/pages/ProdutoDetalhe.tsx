@@ -16,11 +16,11 @@ export const ProdutoDetalhe = () => {
   if (!produto) return <Navigate to="/" replace />
 
   return (
-    <Box minH="100vh" bg="white">
+    <Box minH="100vh" bg="white" display="flex" flexDirection="column">
       <HomeNavbar />
       <ProdutoBreadcrumb nomeProduto={produto.nome} />
 
-      <Container maxW="7xl" py={8}>
+      <Container maxW="7xl" py={8} flex="1">
         {/* Coluna esquerda: galeria + detalhes | Coluna direita: informações */}
         <Grid
           templateColumns={{ base: '1fr', lg: 'minmax(0, 1fr) 500px' }}

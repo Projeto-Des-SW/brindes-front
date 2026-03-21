@@ -1,11 +1,10 @@
-import { Box, Container, Grid, GridItem, HStack, Text, VStack } from '@chakra-ui/react'
-import { HOME_FOOTER_CATEGORIAS, HOME_FOOTER_LINKS } from './homeData'
+import { Box, Container, HStack, Text, VStack } from '@chakra-ui/react'
 
 export const HomeFooter = () => (
   <Box bg="#101828" color="white" pt={12} pb={6}>
     <Container maxW="7xl">
-      <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={8} mb={10}>
-        <GridItem>
+      <HStack align="start" justify="space-between" mb={10} flexWrap="wrap" gap={8}>
+        <Box maxW="25%">
           <Text
             fontFamily="'Dancing Script', 'Brush Script MT', cursive"
             fontSize="xl"
@@ -17,35 +16,9 @@ export const HomeFooter = () => (
           <Text fontSize="xs" color="gray.400" lineHeight="1.8">
             Transformando brindes em estratégia de marca desde 2010. Qualidade e personalização que fazem a diferença.
           </Text>
-        </GridItem>
+        </Box>
 
-        <GridItem>
-          <Text fontWeight="600" fontSize="sm" mb={4}>
-            Links Rápidos
-          </Text>
-          <VStack align="start" gap={2}>
-            {HOME_FOOTER_LINKS.map((link) => (
-              <Text key={link} fontSize="xs" color="gray.400" cursor="pointer" _hover={{ color: 'white' }}>
-                {link}
-              </Text>
-            ))}
-          </VStack>
-        </GridItem>
-
-        <GridItem>
-          <Text fontWeight="600" fontSize="sm" mb={4}>
-            Categorias
-          </Text>
-          <VStack align="start" gap={2}>
-            {HOME_FOOTER_CATEGORIAS.map((categoria) => (
-              <Text key={categoria} fontSize="xs" color="gray.400" cursor="pointer" _hover={{ color: 'white' }}>
-                {categoria}
-              </Text>
-            ))}
-          </VStack>
-        </GridItem>
-
-        <GridItem>
+        <Box maxW="25%">
           <Text fontWeight="600" fontSize="sm" mb={4}>
             Contato
           </Text>
@@ -58,7 +31,7 @@ export const HomeFooter = () => (
                 </svg>
               </Box>
               <Text fontSize="xs" color="gray.400" lineHeight="1.6">
-                Caruaru, Pernambuco<br />Brasil
+                Garanhuns, Pernambuco<br />Brasil
               </Text>
             </HStack>
             <HStack gap={2}>
@@ -79,8 +52,8 @@ export const HomeFooter = () => (
               <Text fontSize="xs" color="gray.400">contato@bahiabrindes.com.br</Text>
             </HStack>
           </VStack>
-        </GridItem>
-      </Grid>
+        </Box>
+      </HStack>
 
       <Box borderTop="1px solid" borderColor="gray.700" pt={5} textAlign="center">
         <Text fontSize="xs" color="gray.500">
