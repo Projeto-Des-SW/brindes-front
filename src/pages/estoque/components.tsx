@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Badge, Box, Button, Flex, Input, SimpleGrid, Text } from '@chakra-ui/react'
-import { EyeIcon, PencilIcon, SearchIcon, TrashIcon } from '../../components/icons'
+import { EyeIcon, SearchIcon } from '../../components/icons'
 import type { MovimentacaoRow, ProdutoEstoqueRow, StatusEstoque, TipoMovimentacao } from './types'
 import { formatBRL, formatInt } from './format'
 
@@ -341,12 +341,10 @@ const badgePaletteFromTipo = (tipo: TipoMovimentacao) => {
 
 export const MovimentacoesTable = ({
   rows,
-  onEdit,
-  onDelete,
+  onView,
 }: {
   rows: MovimentacaoRow[]
-  onEdit?: (row: MovimentacaoRow) => void
-  onDelete?: (row: MovimentacaoRow) => void
+  onView?: (row: MovimentacaoRow) => void
 }) => {
   const columns = [
     { label: 'Data', w: '90px' },
@@ -380,111 +378,44 @@ export const MovimentacoesTable = ({
             </Badge>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="150px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.materiaPrima}
-            >
+            <Box maxW="150px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.materiaPrima}>
               {r.materiaPrima}
             </Box>
           </Box>
-          <Box
-            as="td"
-            px={3}
-            py={3}
-            borderBottom="1px solid"
-            borderColor="gray.100"
-            fontSize="xs"
-            color="gray.700"
-            textAlign="right"
-          >
+          <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
             {formatInt(r.quantidade)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="110px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.fornecedor}
-            >
+            <Box maxW="110px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.fornecedor}>
               {r.fornecedor}
             </Box>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="130px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.responsavel}
-            >
+            <Box maxW="130px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.responsavel}>
               {r.responsavel}
             </Box>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="130px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.destino}
-            >
+            <Box maxW="130px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.destino}>
               {r.destino || '-'}
             </Box>
           </Box>
-          <Box
-            as="td"
-            px={3}
-            py={3}
-            borderBottom="1px solid"
-            borderColor="gray.100"
-            fontSize="xs"
-            color="gray.700"
-            textAlign="right"
-          >
+          <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
             {formatBRL(r.valorTotal)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <Flex justify="center" gap={1}>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Ver movimentação"
-                onClick={() => undefined}
-              >
-                <EyeIcon size={16} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Editar movimentação"
-                onClick={onEdit ? () => onEdit(r) : undefined}
-                disabled={!onEdit}
-              >
-                <PencilIcon size={16} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Excluir movimentação"
-                onClick={onDelete ? () => onDelete(r) : undefined}
-                disabled={!onDelete}
-              >
-                <TrashIcon size={16} />
-              </Button>
-            </Flex>
+            <Button
+              variant="ghost"
+              size="sm"
+              h="28px"
+              w="28px"
+              p={0}
+              aria-label="Ver movimentação"
+              onClick={onView ? () => onView(r) : undefined}
+              disabled={!onView}
+            >
+              <EyeIcon size={16} />
+            </Button>
           </Box>
         </Box>
       ))}

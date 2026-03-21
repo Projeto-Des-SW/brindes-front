@@ -48,6 +48,12 @@ export const EstoquePage = () => {
 
   const [refreshKey, setRefreshKey] = useState(0)
 
+  const [viewMovOpen, setViewMovOpen] = useState(false)
+  const [viewingMov, setViewingMov] = useState<MovimentacaoRow | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deletingMov, setDeletingMov] = useState(false)
+  const [errorDeleteMov, setErrorDeleteMov] = useState<string | null>(null)
+
   const [movDialogOpen, setMovDialogOpen] = useState(false)
   const [editingMov, setEditingMov] = useState<MovimentacaoRow | null>(null)
   const [savingMov, setSavingMov] = useState(false)
@@ -262,16 +268,27 @@ export const EstoquePage = () => {
     return () => controller.abort()
   }
 
-  const onDeleteMov = async (row: MovimentacaoRow) => {
-    if (!row?.id) return
-    const ok = window.confirm('Deseja realmente excluir esta movimentação? Isso irá reverter o estoque.')
-    if (!ok) return
+  const onViewMov = (row: MovimentacaoRow) => {
+    setViewingMov(row)
+    setViewMovOpen(true)
+    setConfirmingDelete(false)
+    setErrorDeleteMov(null)
+  }
+
+  const onDeleteMov = async () => {
+    if (!viewingMov?.id) return
     try {
-      await estoqueService.excluirMovimentacao(row.id, token)
+      setDeletingMov(true)
+      setErrorDeleteMov(null)
+      await estoqueService.excluirMovimentacao(viewingMov.id, token)
+      setViewMovOpen(false)
+      setViewingMov(null)
+      setConfirmingDelete(false)
       setRefreshKey((k) => k + 1)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erro ao excluir movimentação'
-      window.alert(msg)
+      setErrorDeleteMov(e instanceof Error ? e.message : 'Erro ao excluir movimentação')
+    } finally {
+      setDeletingMov(false)
     }
   }
 
@@ -424,15 +441,151 @@ export const EstoquePage = () => {
             ) : (
               <MovimentacoesTable
                 rows={movimentacoes}
-                onEdit={(row) => {
-                  ensureOptsLoaded()
-                  openEditMov(row)
-                }}
-                onDelete={onDeleteMov}
+                onView={onViewMov}
               />
             )}
           </SectionCard>
         </Stack>
+
+        <DialogRoot
+          open={viewMovOpen}
+          onOpenChange={(e) => {
+            setViewMovOpen(e.open)
+            if (!e.open) {
+              setViewingMov(null)
+              setConfirmingDelete(false)
+              setErrorDeleteMov(null)
+            }
+          }}
+        >
+          <DialogBackdrop />
+          <DialogPositioner>
+            <DialogContent>
+              <DialogCloseTrigger />
+              <DialogHeader>
+                <DialogTitle>Detalhes da Movimentação</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                {viewingMov ? (
+                  <Stack gap={2} fontSize="sm" color="gray.700">
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Tipo</Text>
+                      <Text>{viewingMov.tipo}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Data</Text>
+                      <Text>{viewingMov.data || '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Matéria-Prima</Text>
+                      <Text>{viewingMov.materiaPrima || '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Quantidade</Text>
+                      <Text>{viewingMov.quantidade}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Fornecedor</Text>
+                      <Text>{viewingMov.fornecedor || '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Responsável</Text>
+                      <Text>{viewingMov.responsavel || '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Destino</Text>
+                      <Text>{viewingMov.destino || '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Valor Unitário</Text>
+                      <Text>{viewingMov.valorUnitario != null ? `R$ ${viewingMov.valorUnitario.toFixed(2)}` : '—'}</Text>
+                    </HStack>
+                    <HStack justify="space-between">
+                      <Text fontWeight="700">Valor Total</Text>
+                      <Text>{viewingMov.valorTotal != null ? `R$ ${viewingMov.valorTotal.toFixed(2)}` : '—'}</Text>
+                    </HStack>
+                    {viewingMov.motivo ? (
+                      <Box>
+                        <Text fontWeight="700" mb={1}>Motivo</Text>
+                        <Text color="gray.600">{viewingMov.motivo}</Text>
+                      </Box>
+                    ) : null}
+                  </Stack>
+                ) : null}
+              </DialogBody>
+              <DialogFooter>
+                <Stack gap={3} w="full">
+                  {confirmingDelete ? (
+                    <Box
+                      bg="red.50"
+                      border="1px solid"
+                      borderColor="red.200"
+                      borderRadius="md"
+                      px={4}
+                      py={3}
+                    >
+                      <Text fontSize="xs" color="red.700" fontWeight="600" mb={2}>
+                        Isso irá reverter o estoque. Confirma a exclusão?
+                      </Text>
+                      {errorDeleteMov ? (
+                        <Text fontSize="xs" color="red.600" mb={2}>{errorDeleteMov}</Text>
+                      ) : null}
+                      <HStack gap={2}>
+                        <Button
+                          size="sm"
+                          bg="red.600"
+                          color="white"
+                          _hover={{ bg: 'red.700' }}
+                          onClick={onDeleteMov}
+                          disabled={deletingMov}
+                        >
+                          {deletingMov ? 'Excluindo...' : 'Confirmar exclusão'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => { setConfirmingDelete(false); setErrorDeleteMov(null) }}
+                          disabled={deletingMov}
+                        >
+                          Cancelar
+                        </Button>
+                      </HStack>
+                    </Box>
+                  ) : null}
+                  <HStack gap={3} justify="space-between">
+                    <Button
+                      variant="outline"
+                      colorPalette="red"
+                      onClick={() => setConfirmingDelete(true)}
+                      disabled={confirmingDelete}
+                    >
+                      Excluir
+                    </Button>
+                    <HStack gap={3}>
+                      <Button variant="outline" onClick={() => setViewMovOpen(false)}>
+                        Fechar
+                      </Button>
+                      <Button
+                        bg="gray.900"
+                        color="white"
+                        _hover={{ bg: 'gray.800' }}
+                        onClick={() => {
+                          if (!viewingMov) return
+                          setViewMovOpen(false)
+                          setConfirmingDelete(false)
+                          ensureOptsLoaded()
+                          openEditMov(viewingMov)
+                        }}
+                      >
+                        Editar
+                      </Button>
+                    </HStack>
+                  </HStack>
+                </Stack>
+              </DialogFooter>
+            </DialogContent>
+          </DialogPositioner>
+        </DialogRoot>
 
         <DialogRoot
           open={movDialogOpen}
