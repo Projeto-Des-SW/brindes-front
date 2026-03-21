@@ -236,7 +236,6 @@ const FuncionarioDialog = ({
                     <Box
                       key={p}
                       as="button"
-                      type="button"
                       onClick={() => togglePerfil(p)}
                       px={3}
                       py={2}
@@ -469,7 +468,7 @@ export const Admin = () => {
   const [deleteTarget, setDeleteTarget] = useState<FuncionarioResponse | null>(null)
 
   const reload = async (signal?: AbortSignal) => {
-    const page = await funcionarioService.listar({ page: 1, pageSize: 100 }, token, signal)
+    const page = await funcionarioService.listar({ page: 1, pageSize: 100 }, token ?? '', signal)
     setFuncionarios(page.items)
   }
 
@@ -505,14 +504,14 @@ export const Admin = () => {
         email: data.email,
         senha: data.senha.trim() || undefined,
         perfis: data.perfis,
-      }, token)
+      }, token ?? '')
     } else {
       await funcionarioService.criar({
         nome: data.nome,
         email: data.email,
         senha: data.senha,
         perfis: data.perfis,
-      }, token)
+      }, token ?? '')
     }
     await reload()
     setUpsertOpen(false)
@@ -521,7 +520,7 @@ export const Admin = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    await funcionarioService.remover(deleteTarget.id, token)
+    await funcionarioService.remover(deleteTarget.id, token ?? '')
     await reload()
     setDeleteOpen(false)
     setDeleteTarget(null)
@@ -591,9 +590,9 @@ export const Admin = () => {
                   <Box as="tbody">
                     {filtrados.length === 0 ? (
                       <Box as="tr">
-                        <Box as="td" colSpan={columns.length} px={3} py={6} textAlign="center" fontSize="sm" color="gray.400">
+                        <td colSpan={columns.length} style={{ padding: '24px 12px', textAlign: 'center', fontSize: '12px', color: '#9CA3AF' }}>
                           Nenhum funcionário encontrado.
-                        </Box>
+                        </td>
                       </Box>
                     ) : filtrados.map((f) => (
                       <Box as="tr" key={f.id}>
