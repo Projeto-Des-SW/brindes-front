@@ -142,7 +142,6 @@ const STATUS_FLOW = [
 
 const STATUS_FLOW_ORDER = STATUS_FLOW.map((s) => s.key)
 
-const METODOS_PAGAMENTO = ['PIX', 'BOLETO', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'TRANSFERENCIA']
 const METODO_LABEL: Record<string, string> = {
   PIX: 'PIX',
   BOLETO: 'Boleto',
@@ -228,10 +227,11 @@ interface DetalheVendaModalProps {
   onClose: () => void
   vendaId: number | null
   token: string | null
+  userName: string
   onVendaAtualizada?: () => void
 }
 
-const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada }: DetalheVendaModalProps) => {
+const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, userName, onVendaAtualizada }: DetalheVendaModalProps) => {
   const [detalhe, setDetalhe] = useState<OrcamentoDetalheResponseDTO | null>(null)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -251,6 +251,18 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
   const [uploadingArte, setUploadingArte] = useState(false)
   const [downloadingArteId, setDownloadingArteId] = useState<number | null>(null)
   const [erroArte, setErroArte] = useState<string | null>(null)
+
+  // Status de arte (admin)
+  const [atualizandoArteId, setAtualizandoArteId] = useState<number | null>(null)
+
+  // Comentários
+  const [comentarioTexto, setComentarioTexto] = useState<Record<string, string>>({}) // key: produtoNome ou 'geral'
+  const [enviandoComentario, setEnviandoComentario] = useState<string | null>(null) // key sendo enviada
+
+  // Desconto por item
+  const [editandoDescontoItemId, setEditandoDescontoItemId] = useState<number | null>(null)
+  const [editDescontoValor, setEditDescontoValor] = useState('')
+  const [salvandoDesconto, setSalvandoDesconto] = useState(false)
 
   // Notificação
   const [notificando, setNotificando] = useState(false)
@@ -302,7 +314,7 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
     if (!vendaId) return
     setAtualizandoStatus(true)
     orcamentoService
-      .atualizarStatus(token, vendaId, novoStatus)
+      .atualizarStatus(token, vendaId, novoStatus, userName)
       .then((d) => {
         setDetalhe(d)
         onVendaAtualizada?.()
@@ -357,6 +369,51 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
       setErro(err instanceof Error ? err.message : 'Erro ao notificar')
     } finally {
       setNotificando(false)
+    }
+  }
+
+  const handleAvaliarArteAdmin = async (arteId: number, novoStatus: string) => {
+    if (!vendaId) return
+    setAtualizandoArteId(arteId)
+    try {
+      const updated = await orcamentoService.avaliarArteAdmin(token, vendaId, arteId, novoStatus)
+      setDetalhe(updated)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao atualizar arte')
+    } finally {
+      setAtualizandoArteId(null)
+    }
+  }
+
+  const handleEnviarComentario = async (key: string, produtoNome?: string) => {
+    const mensagem = comentarioTexto[key]?.trim()
+    if (!mensagem || !vendaId) return
+    setEnviandoComentario(key)
+    try {
+      const updated = await orcamentoService.adicionarComentario(token, vendaId, mensagem, produtoNome)
+      setDetalhe(updated)
+      setComentarioTexto((prev) => ({ ...prev, [key]: '' }))
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao enviar comentário')
+    } finally {
+      setEnviandoComentario(null)
+    }
+  }
+
+  const handleSalvarDesconto = async (itemId: number) => {
+    if (!vendaId) return
+    const valor = parseFloat(editDescontoValor.replace(',', '.'))
+    if (isNaN(valor) || valor < 0) return
+    setSalvandoDesconto(true)
+    try {
+      const updated = await orcamentoService.atualizarDescontoItem(token, vendaId, itemId, valor)
+      setDetalhe(updated)
+      setEditandoDescontoItemId(null)
+      setEditDescontoValor('')
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar desconto')
+    } finally {
+      setSalvandoDesconto(false)
     }
   }
 
@@ -579,12 +636,83 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                               overflow="hidden"
                             >
                               {/* Cabeçalho do produto */}
-                              <Flex px={4} py={3} justify="space-between" align="center" bg="white">
-                                <Box>
+                              <Flex px={4} py={3} justify="space-between" align="flex-start" bg="white" gap={3}>
+                                <Box flex="1" minW={0}>
                                   <Text fontSize="sm" fontWeight="700" color="gray.900">{prod.nome}</Text>
                                   <Text fontSize="xs" color="gray.500" mt="2px">
-                                    Qtd.: {prod.quantidade} • Unit.: {formatBRL(prod.precoUnitario ?? 0)}{(prod.desconto ?? 0) > 0 ? ` • Desc.: - ${formatBRL(prod.desconto)}` : ''} • Total: {formatBRL(prod.precoTotal ?? 0)}
+                                    Qtd.: {prod.quantidade} • Unit.: {formatBRL(prod.precoUnitario ?? 0)} • Total: {formatBRL(prod.precoTotal ?? 0)}
                                   </Text>
+
+                                  {/* Desconto inline */}
+                                  {editandoDescontoItemId === prod.id ? (
+                                    <HStack gap={1} mt={2}>
+                                      <Box
+                                        as="span"
+                                        fontSize="11px"
+                                        fontWeight="600"
+                                        color="gray.500"
+                                        whiteSpace="nowrap"
+                                      >
+                                        Desconto R$
+                                      </Box>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={editDescontoValor}
+                                        onChange={(e) => setEditDescontoValor(e.target.value)}
+                                        style={{
+                                          width: '90px',
+                                          fontSize: '12px',
+                                          border: '1px solid #CBD5E0',
+                                          borderRadius: '4px',
+                                          padding: '2px 6px',
+                                          outline: 'none',
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSalvarDesconto(prod.id)
+                                          if (e.key === 'Escape') { setEditandoDescontoItemId(null); setEditDescontoValor('') }
+                                        }}
+                                        autoFocus
+                                      />
+                                      <Button
+                                        size="xs" h="22px" px={2} fontSize="11px"
+                                        bg="gray.900" color="white" _hover={{ bg: 'gray.700' }}
+                                        loading={salvandoDesconto}
+                                        onClick={() => handleSalvarDesconto(prod.id)}
+                                      >
+                                        Salvar
+                                      </Button>
+                                      <Button
+                                        size="xs" h="22px" px={2} fontSize="11px"
+                                        variant="ghost" color="gray.500"
+                                        disabled={salvandoDesconto}
+                                        onClick={() => { setEditandoDescontoItemId(null); setEditDescontoValor('') }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </HStack>
+                                  ) : (
+                                    <HStack gap={1} mt="4px">
+                                      {(prod.desconto ?? 0) > 0 && (
+                                        <Text fontSize="xs" color="orange.500" fontWeight="600">
+                                          − {formatBRL(prod.desconto ?? 0)} de desconto
+                                        </Text>
+                                      )}
+                                      <Box
+                                        as="button"
+                                        fontSize="11px"
+                                        color="gray.400"
+                                        _hover={{ color: 'gray.700' }}
+                                        onClick={() => {
+                                          setEditandoDescontoItemId(prod.id)
+                                          setEditDescontoValor(String(prod.desconto ?? 0))
+                                        }}
+                                      >
+                                        {(prod.desconto ?? 0) > 0 ? 'Editar desconto' : '+ Adicionar desconto'}
+                                      </Box>
+                                    </HStack>
+                                  )}
                                 </Box>
                                 {canUpload && (
                                   <Button
@@ -629,16 +757,34 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                                         )}
                                       </Box>
                                       <Box flex="1" minW={0}>
-                                        <Text fontSize="xs" fontWeight="600" color="gray.700" noOfLines={1}>
+                                        <Text fontSize="xs" fontWeight="600" color="gray.700">
                                           {arte.nomeArquivo ?? 'arte.jpg'}
                                         </Text>
-                                        <Box
-                                          display="inline-block" mt="2px" px="6px" py="1px" borderRadius="full" fontSize="10px" fontWeight="700"
-                                          bg={arte.status === 'APROVADA' ? '#d1fae5' : arte.status === 'AJUSTE_SOLICITADO' ? '#fee2e2' : '#fef3c7'}
-                                          color={arte.status === 'APROVADA' ? '#065f46' : arte.status === 'AJUSTE_SOLICITADO' ? '#991b1b' : '#92400e'}
-                                        >
-                                          {arte.status === 'APROVADA' ? 'Aprovada' : arte.status === 'AJUSTE_SOLICITADO' ? 'Ajuste solicitado' : 'Pendente'}
-                                        </Box>
+                                        <HStack gap={1} mt="4px" flexWrap="wrap">
+                                          {(['PENDENTE', 'APROVADA', 'AJUSTE_SOLICITADO'] as const).map((s) => {
+                                            const isActive = arte.status === s
+                                            const label = s === 'APROVADA' ? 'Aprovada' : s === 'AJUSTE_SOLICITADO' ? 'Ajuste' : 'Pendente'
+                                            const activeBg = s === 'APROVADA' ? '#d1fae5' : s === 'AJUSTE_SOLICITADO' ? '#fee2e2' : '#fef3c7'
+                                            const activeColor = s === 'APROVADA' ? '#065f46' : s === 'AJUSTE_SOLICITADO' ? '#991b1b' : '#92400e'
+                                            return (
+                                              <Box
+                                                key={s}
+                                                as="button"
+                                                px="6px" py="1px" borderRadius="full" fontSize="10px" fontWeight="700"
+                                                border="1px solid"
+                                                bg={isActive ? activeBg : 'white'}
+                                                color={isActive ? activeColor : 'gray.400'}
+                                                borderColor={isActive ? activeColor : 'gray.200'}
+                                                opacity={atualizandoArteId === arte.id ? 0.5 : 1}
+                                                cursor={isActive || atualizandoArteId === arte.id ? 'default' : 'pointer'}
+                                                _hover={!isActive && !atualizandoArteId ? { bg: 'gray.50', borderColor: 'gray.400', color: 'gray.600' } : undefined}
+                                                onClick={!isActive && !atualizandoArteId ? () => handleAvaliarArteAdmin(arte.id, s) : undefined}
+                                              >
+                                                {label}
+                                              </Box>
+                                            )
+                                          })}
+                                        </HStack>
                                       </Box>
                                     </Flex>
                                     <Button
@@ -667,20 +813,40 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                                 </Box>
                               )}
 
-                              {/* Comentários do produto */}
-                              {comentariosProd.length > 0 && (
-                                <Stack gap={2} px={4} py={3} borderTop="1px solid" borderColor="gray.100">
-                                  {comentariosProd.map((c) => (
-                                    <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
-                                      <Flex justify="space-between" mb="2px">
-                                        <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
-                                        <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
-                                      </Flex>
-                                      <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
-                                    </Box>
-                                  ))}
-                                </Stack>
-                              )}
+                              {/* Comentários do produto + input */}
+                              <Stack gap={2} px={4} py={3} borderTop="1px solid" borderColor="gray.100">
+                                {comentariosProd.map((c) => (
+                                  <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                    <Flex justify="space-between" mb="2px">
+                                      <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
+                                      <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                                    </Flex>
+                                    <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                                  </Box>
+                                ))}
+                                {/* Input para novo comentário do produto */}
+                                <HStack gap={2}>
+                                  <input
+                                    value={comentarioTexto[prod.nome] ?? ''}
+                                    onChange={(e) => setComentarioTexto((prev) => ({ ...prev, [prod.nome]: e.target.value }))}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarComentario(prod.nome, prod.nome) }}}
+                                    placeholder="Adicionar comentário..."
+                                    style={{
+                                      flex: 1, border: '1px solid #e5e7eb', borderRadius: '6px',
+                                      padding: '5px 10px', fontSize: '12px', outline: 'none',
+                                      color: '#111827', background: 'white',
+                                    }}
+                                  />
+                                  <Button
+                                    size="xs" h="28px" fontSize="11px" px={3}
+                                    bg="gray.800" color="white" _hover={{ bg: 'gray.700' }}
+                                    disabled={!comentarioTexto[prod.nome]?.trim() || enviandoComentario === prod.nome}
+                                    onClick={() => handleEnviarComentario(prod.nome, prod.nome)}
+                                  >
+                                    {enviandoComentario === prod.nome ? '...' : 'Enviar'}
+                                  </Button>
+                                </HStack>
+                              </Stack>
                             </Box>
                           )
                         })}
@@ -689,24 +855,44 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                         )}
 
                         {/* Comentários gerais (sem produto) */}
-                        {comentariosGerais.length > 0 && (
-                          <Box>
-                            <Text fontSize="11px" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={2}>
-                              Comentários Gerais
-                            </Text>
-                            <Stack gap={2}>
-                              {comentariosGerais.map((c) => (
-                                <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
-                                  <Flex justify="space-between" mb="2px">
-                                    <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
-                                    <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
-                                  </Flex>
-                                  <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
-                                </Box>
-                              ))}
-                            </Stack>
-                          </Box>
-                        )}
+                        <Box>
+                          <Text fontSize="11px" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={2}>
+                            Comentários Gerais
+                          </Text>
+                          <Stack gap={2}>
+                            {comentariosGerais.map((c) => (
+                              <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                <Flex justify="space-between" mb="2px">
+                                  <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
+                                  <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                                </Flex>
+                                <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                              </Box>
+                            ))}
+                            {/* Input para comentário geral */}
+                            <HStack gap={2}>
+                              <input
+                                value={comentarioTexto['geral'] ?? ''}
+                                onChange={(e) => setComentarioTexto((prev) => ({ ...prev, geral: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarComentario('geral') }}}
+                                placeholder="Comentário geral (visível apenas para funcionários)..."
+                                style={{
+                                  flex: 1, border: '1px solid #e5e7eb', borderRadius: '6px',
+                                  padding: '5px 10px', fontSize: '12px', outline: 'none',
+                                  color: '#111827', background: 'white',
+                                }}
+                              />
+                              <Button
+                                size="xs" h="28px" fontSize="11px" px={3}
+                                bg="gray.800" color="white" _hover={{ bg: 'gray.700' }}
+                                disabled={!comentarioTexto['geral']?.trim() || enviandoComentario === 'geral'}
+                                onClick={() => handleEnviarComentario('geral')}
+                              >
+                                {enviandoComentario === 'geral' ? '...' : 'Enviar'}
+                              </Button>
+                            </HStack>
+                          </Stack>
+                        </Box>
                       </Stack>
                     </Section>
                   )
@@ -838,7 +1024,6 @@ const ComboBox = ({
         />
         <Box
           as="button"
-          type="button"
           color="gray.400"
           flexShrink={0}
           onClick={(e: React.MouseEvent) => { e.stopPropagation(); setOpen((o) => !o) }}
@@ -1232,7 +1417,7 @@ const handleSubmit = async () => {
 // ─── Página principal ──────────────────────────────────────────────────────────
 
 export const VendasClientes = () => {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFiltro, setStatusFiltro] = useState('')
   const [isNovaVendaOpen, setIsNovaVendaOpen] = useState(false)
@@ -1493,6 +1678,7 @@ export const VendasClientes = () => {
           onClose={() => setDetalheVendaId(null)}
           vendaId={detalheVendaId}
           token={token}
+          userName={user?.nome ?? user?.email ?? 'Sistema'}
           onVendaAtualizada={() => setReloadKey((k) => k + 1)}
         />
       </Container>

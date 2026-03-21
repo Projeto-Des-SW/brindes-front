@@ -45,4 +45,12 @@ export const categoriaService = {
       throw new Error(msg || `Erro HTTP ${res.status}`)
     }
   },
+
+  async toggleStatus(id: number, token?: string | null): Promise<CategoriaResponse> {
+    const res = await fetch(apiUrl(`${API_ENDPOINTS.estoque.categorias}/${id}/toggle`), {
+      method: 'PATCH',
+      headers: { ...authHeaders(token) },
+    })
+    return getJsonOrThrow<CategoriaResponse>(res)
+  },
 }

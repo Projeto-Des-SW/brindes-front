@@ -23,7 +23,9 @@ import {
   orcamentoService,
   type ArteDTO,
   type OrcamentoDetalheResponseDTO,
+  type OrcamentoProdutoDetalheDTO,
 } from '../services/orcamentoService'
+import { StarRating } from '../components/produto/StarRating'
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 
@@ -221,7 +223,7 @@ interface ArteCardProps {
 
 const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado }: ArteCardProps) => {
   const [comentario, setComentario] = useState('')
-  const [salvando, setSalvando] = useState(false)
+  const [salvando, setSalvando] = useState<'APROVAR' | 'SOLICITAR_AJUSTE' | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const arteStyle = ARTE_STATUS_STYLE[arte.status] ?? { bg: 'gray.100', color: 'gray.700' }
   const arteLabel = ARTE_STATUS_LABEL[arte.status] ?? arte.status
@@ -231,7 +233,7 @@ const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado
       setErro('Informe o que precisa ser ajustado.')
       return
     }
-    setSalvando(true)
+    setSalvando(acao)
     setErro(null)
     try {
       const updated = await orcamentoService.avaliarArte(token, orcamentoId, arte.id, acao, comentario)
@@ -240,7 +242,7 @@ const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao salvar avaliação')
     } finally {
-      setSalvando(false)
+      setSalvando(null)
     }
   }
 
@@ -312,22 +314,22 @@ const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado
               <Button
                 flex={1} size="sm" bg="#15803d" color="white" fontWeight="600" fontSize="xs"
                 borderRadius="md" _hover={{ bg: '#166534' }}
-                disabled={salvando}
+                disabled={salvando !== null}
                 onClick={() => handleAvaliar('APROVAR')}
               >
                 <HStack gap={1.5}>
-                  {salvando ? <Spinner size="xs" /> : <CheckIcon />}
+                  {salvando === 'APROVAR' ? <Spinner size="xs" /> : <CheckIcon />}
                   <Text>Aprovar Arte</Text>
                 </HStack>
               </Button>
               <Button
                 flex={1} size="sm" variant="outline" borderColor="#dc2626" color="#dc2626"
                 fontWeight="600" fontSize="xs" borderRadius="md" _hover={{ bg: '#fee2e2' }}
-                disabled={salvando}
+                disabled={salvando !== null}
                 onClick={() => handleAvaliar('SOLICITAR_AJUSTE')}
               >
                 <HStack gap={1.5}>
-                  {salvando ? <Spinner size="xs" /> : <AlertIcon />}
+                  {salvando === 'SOLICITAR_AJUSTE' ? <Spinner size="xs" /> : <AlertIcon />}
                   <Text>Solicitar Ajuste</Text>
                 </HStack>
               </Button>
@@ -335,6 +337,141 @@ const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado
           </>
         )}
       </Box>
+    </Box>
+  )
+}
+
+// ─── Sub-componente: Avaliar Produto ─────────────────────────────────────────
+
+interface AvaliarProdutoCardProps {
+  produto: OrcamentoProdutoDetalheDTO
+  orcamentoId: number
+  token: string | null
+  onAvaliado: () => void
+}
+
+const AvaliarProdutoCard = ({ produto, orcamentoId, token, onAvaliado }: AvaliarProdutoCardProps) => {
+  const [nota, setNota] = useState(0)
+  const [hoverNota, setHoverNota] = useState(0)
+  const [comentario, setComentario] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [notaEnviada, setNotaEnviada] = useState<number>(produto.notaAvaliacao ?? 0)
+  const [comentarioEnviado, setComentarioEnviado] = useState<string | null>(produto.comentarioAvaliacao ?? null)
+  const [avaliado, setAvaliado] = useState(produto.jaAvaliado ?? false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  if (!produto.produtoId) return null
+
+  const handleEnviar = async () => {
+    if (nota === 0) { setErro('Selecione uma nota.'); return }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await orcamentoService.criarAvaliacao(token, orcamentoId, {
+        produtoId: produto.produtoId!,
+        nota,
+        comentario: comentario.trim() || undefined,
+      })
+      setNotaEnviada(nota)
+      setComentarioEnviado(comentario.trim() || null)
+      setAvaliado(true)
+      onAvaliado()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao enviar avaliação')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  if (avaliado) {
+    return (
+      <Box bg="green.50" border="1px solid" borderColor="green.200" borderRadius="md" p={4}>
+        <HStack gap={2} mb={2}>
+          <Box color="green.600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </Box>
+          <Text fontSize="xs" fontWeight="700" color="green.700">Você avaliou este produto</Text>
+        </HStack>
+        <HStack gap={2}>
+          <StarRating value={notaEnviada} size={14} />
+          <Text fontSize="xs" color="gray.500">
+            {['', 'Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente'][notaEnviada] ?? ''}
+          </Text>
+        </HStack>
+        {comentarioEnviado && (
+          <Text fontSize="xs" color="gray.600" mt={2} fontStyle="italic">
+            "{comentarioEnviado}"
+          </Text>
+        )}
+      </Box>
+    )
+  }
+
+  return (
+    <Box border="1px solid" borderColor="gray.200" borderRadius="md" p={4} bg="gray.50">
+      <Text fontSize="sm" fontWeight="600" color="#1a1616" mb={3}>
+        Avalie: {produto.nome}
+      </Text>
+
+      {/* Seletor de estrelas */}
+      <HStack gap={1} mb={3}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Box
+            key={star}
+            as="button"
+            cursor="pointer"
+            color={(hoverNota || nota) >= star ? '#f59e0b' : 'gray.300'}
+            transition="color 0.1s"
+            onMouseEnter={() => setHoverNota(star)}
+            onMouseLeave={() => setHoverNota(0)}
+            onClick={() => setNota(star)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </Box>
+        ))}
+        {nota > 0 && (
+          <Text fontSize="xs" color="gray.500" ml={2}>
+            {['', 'Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente'][nota]}
+          </Text>
+        )}
+      </HStack>
+
+      <Textarea
+        value={comentario}
+        onChange={(e) => setComentario(e.target.value)}
+        placeholder="Comentário (opcional)"
+        fontSize="xs"
+        size="sm"
+        borderColor="gray.200"
+        borderRadius="md"
+        resize="none"
+        rows={2}
+        mb={3}
+        bg="white"
+        _focus={{ borderColor: '#1a1616', boxShadow: 'none' }}
+      />
+
+      {erro && (
+        <Text fontSize="xs" color="red.500" mb={2}>{erro}</Text>
+      )}
+
+      <Button
+        size="sm"
+        bg="#1a1616"
+        color="white"
+        fontWeight="600"
+        fontSize="xs"
+        borderRadius="md"
+        _hover={{ bg: '#333' }}
+        disabled={salvando}
+        onClick={handleEnviar}
+      >
+        {salvando ? <Spinner size="xs" /> : 'Enviar Avaliação'}
+      </Button>
     </Box>
   )
 }
@@ -615,8 +752,9 @@ export const OrcamentoDetalhe = () => {
                       <HistoricoStatus historico={data.historico ?? []} statusAtual={data.status} />
                     )}
 
-                    {/* Artes para Aprovação */}
-                    {(data.artes ?? []).length > 0 && (
+                    {/* Artes para Aprovação — visível apenas a partir de ARTE_PENDENTE */}
+                    {(data.artes ?? []).length > 0 &&
+                     ['ARTE_PENDENTE','ARTES_APROVADAS','EM_PRODUCAO','CONCLUIDO'].includes(data.status) && (
                       <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="lg" p={6}>
                         <HStack gap={2} mb={5}>
                           <Box color="gray.600"><DocumentIcon /></Box>
@@ -650,73 +788,84 @@ export const OrcamentoDetalhe = () => {
                         </HStack>
                         <VStack gap={4} align="stretch">
                           {(data.produtos ?? []).map((produto) => (
-                            <HStack
-                              key={produto.id}
-                              gap={4}
-                              p={4}
-                              bg="gray.50"
-                              borderRadius="md"
-                              align="start"
-                            >
-                              {/* Imagem */}
-                              <Box
-                                w="80px"
-                                h="80px"
+                            <VStack key={produto.id} gap={3} align="stretch">
+                              <HStack
+                                gap={4}
+                                p={4}
+                                bg="gray.50"
                                 borderRadius="md"
-                                overflow="hidden"
-                                flexShrink={0}
-                                bg="gray.200"
-                                border="1px solid"
-                                borderColor="gray.200"
+                                align="start"
                               >
-                                <Image
-                                  src={produto.imagemUrl ?? ''}
-                                  alt={produto.nome}
-                                  w="full"
-                                  h="full"
-                                  objectFit="cover"
-                                />
-                              </Box>
+                                {/* Imagem */}
+                                <Box
+                                  w="80px"
+                                  h="80px"
+                                  borderRadius="md"
+                                  overflow="hidden"
+                                  flexShrink={0}
+                                  bg="gray.200"
+                                  border="1px solid"
+                                  borderColor="gray.200"
+                                >
+                                  <Image
+                                    src={produto.imagemUrl ?? ''}
+                                    alt={produto.nome}
+                                    w="full"
+                                    h="full"
+                                    objectFit="cover"
+                                  />
+                                </Box>
 
-                              {/* Detalhes */}
-                              <Box flex={1} minW={0}>
-                                <Text fontSize="sm" fontWeight="700" color="#1a1616" mb={1}>
-                                  {produto.nome}
-                                </Text>
-                                <VStack align="start" gap={0.5}>
-                                  <Text fontSize="xs" color="gray.600">
-                                    Quantidade: {produto.quantidade} unidades
+                                {/* Detalhes */}
+                                <Box flex={1} minW={0}>
+                                  <Text fontSize="sm" fontWeight="700" color="#1a1616" mb={1}>
+                                    {produto.nome}
                                   </Text>
-                                  {produto.cor && (
+                                  <VStack align="start" gap={0.5}>
                                     <Text fontSize="xs" color="gray.600">
-                                      Cor: {produto.cor}
+                                      Quantidade: {produto.quantidade} unidades
                                     </Text>
-                                  )}
-                                  {produto.tamanho && (
-                                    <Text fontSize="xs" color="gray.600">
-                                      Tamanho: {produto.tamanho}
-                                    </Text>
-                                  )}
-                                  {produto.impressao && (
-                                    <Text fontSize="xs" color="gray.600">
-                                      Impressão: {produto.impressao}
-                                    </Text>
-                                  )}
-                                </VStack>
-                              </Box>
+                                    {produto.cor && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Cor: {produto.cor}
+                                      </Text>
+                                    )}
+                                    {produto.tamanho && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Tamanho: {produto.tamanho}
+                                      </Text>
+                                    )}
+                                    {produto.impressao && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Impressão: {produto.impressao}
+                                      </Text>
+                                    )}
+                                  </VStack>
+                                </Box>
 
-                              {/* Preços */}
-                              <VStack align="end" gap={0.5} flexShrink={0}>
-                                <Text fontSize="xs" color="gray.500">Valor unitário</Text>
-                                <Text fontSize="sm" fontWeight="600" color="#1a1616">
-                                  {formatPreco(produto.precoUnitario)}
-                                </Text>
-                                <Text fontSize="xs" color="gray.500" mt={1}>Total</Text>
-                                <Text fontSize="sm" fontWeight="700" color="#1a1616">
-                                  {formatPreco(produto.precoTotal)}
-                                </Text>
-                              </VStack>
-                            </HStack>
+                                {/* Preços */}
+                                <VStack align="end" gap={0.5} flexShrink={0}>
+                                  <Text fontSize="xs" color="gray.500">Valor unitário</Text>
+                                  <Text fontSize="sm" fontWeight="600" color="#1a1616">
+                                    {formatPreco(produto.precoUnitario)}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.500" mt={1}>Total</Text>
+                                  <Text fontSize="sm" fontWeight="700" color="#1a1616">
+                                    {formatPreco(produto.precoTotal)}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+
+                              {/* Avaliação — só quando CONCLUIDO e produto tem id */}
+                              {data.status === 'CONCLUIDO' && produto.produtoId && (
+                                <AvaliarProdutoCard
+                                  produto={produto}
+                                  orcamentoId={data.id}
+                                  token={token}
+                                  onAvaliado={() => {}}
+                                />
+                              )}
+                            </VStack>
                           ))}
                         </VStack>
                       </Box>

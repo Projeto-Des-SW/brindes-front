@@ -123,5 +123,13 @@ export const fornecedorService = {
       throw new Error(msg || `Erro HTTP ${res.status}`)
     }
   },
+
+  async toggleStatus(id: number, token?: string | null): Promise<FornecedorResponse> {
+    const res = await fetch(apiUrl(`${API_ENDPOINTS.estoque.fornecedores}/${id}/toggle`), {
+      method: 'PATCH',
+      headers: { ...authHeaders(token) },
+    })
+    return getJsonOrThrow<FornecedorResponse>(res)
+  },
 }
 

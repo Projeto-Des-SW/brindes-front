@@ -64,6 +64,10 @@ export interface ArteDTO {
 
 export interface OrcamentoProdutoDetalheDTO {
   id: number
+  produtoId?: number | null
+  jaAvaliado?: boolean
+  notaAvaliacao?: number | null
+  comentarioAvaliacao?: string | null
   nome: string
   quantidade: number
   cor?: string | null
@@ -301,6 +305,20 @@ export const orcamentoService = {
     if (!res.ok) throw new Error(await res.text())
   },
 
+  async criarAvaliacao(
+    token: string | null,
+    orcamentoId: number,
+    data: { produtoId: number; nota: number; comentario?: string },
+  ): Promise<{ id: number; nomeCliente: string; nota: number; comentario: string | null; criadoEm: string }> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/meus/${orcamentoId}/avaliar`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify(data),
+    })
+    return getJsonOrThrow(res)
+  },
+
   async atualizarStatus(
     token: string | null,
     id: number,
@@ -313,6 +331,52 @@ export const orcamentoService = {
     const res = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    })
+    return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
+  },
+
+  async avaliarArteAdmin(
+    token: string | null,
+    orcamentoId: number,
+    arteId: number,
+    novoStatus: string,
+    comentario?: string,
+  ): Promise<OrcamentoDetalheResponseDTO> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/admin/${orcamentoId}/artes/${arteId}/status`)
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify({ novoStatus, comentario }),
+    })
+    return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
+  },
+
+  async atualizarDescontoItem(
+    token: string | null,
+    orcamentoId: number,
+    itemId: number,
+    desconto: number,
+  ): Promise<OrcamentoDetalheResponseDTO> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/admin/${orcamentoId}/itens/${itemId}`)
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify({ desconto }),
+    })
+    return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
+  },
+
+  async adicionarComentario(
+    token: string | null,
+    orcamentoId: number,
+    mensagem: string,
+    produtoNome?: string,
+  ): Promise<OrcamentoDetalheResponseDTO> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/admin/${orcamentoId}/comentario`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify({ mensagem, produtoNome }),
     })
     return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
   },

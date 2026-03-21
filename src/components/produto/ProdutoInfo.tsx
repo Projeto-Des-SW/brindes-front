@@ -2,47 +2,54 @@ import { useState } from 'react'
 import { Box, Button, HStack, Text, VStack } from '@chakra-ui/react'
 import { useNavigate } from 'react-router-dom'
 import { StarRating } from './StarRating'
-import type { ProdutoDetalhe } from './produtoData'
+import type { ProdutoResponse } from '../../services/produtoService'
 import { useCart } from '../../context/useCart'
 
 type Props = {
-  produto: ProdutoDetalhe
+  produto: ProdutoResponse
 }
 
 export const ProdutoInfo = ({ produto }: Props) => {
-  const [quantidade, setQuantidade] = useState(produto.minimoUnidades)
+  const preco = Number(produto.precoVenda ?? 0)
+  const estoqueDisponivel = produto.estoqueAtual ?? 0
+  const esgotado = estoqueDisponivel <= 0
+  const estoqueMax = esgotado ? 1 : estoqueDisponivel
+  const [quantidade, setQuantidade] = useState(1)
   const { addToCart } = useCart()
   const navigate = useNavigate()
 
-  const total = (produto.preco * quantidade).toFixed(2).replace('.', ',')
-  const precoFormatado = produto.preco.toFixed(2).replace('.', ',')
+  const total = (preco * quantidade).toFixed(2).replace('.', ',')
+  const precoFormatado = preco.toFixed(2).replace('.', ',')
 
-  const decrementar = () => {
-    if (quantidade > produto.minimoUnidades) setQuantidade((q) => q - 1)
-  }
-  const incrementar = () => setQuantidade((q) => q + 1)
+  const decrementar = () => setQuantidade((q) => Math.max(1, q - 1))
+  const incrementar = () => setQuantidade((q) => Math.min(estoqueMax, q + 1))
 
   const handleAdicionarAoCarrinho = () => {
     addToCart({
       produtoId: produto.id,
       nome: produto.nome,
-      categoria: produto.categoria,
-      preco: produto.preco,
+      categoria: produto.categoriaNome ?? '',
+      preco,
       cor: '',
       impressao: '',
       quantidade,
-      imagem: produto.imagens[0],
-      minimoUnidades: produto.minimoUnidades,
+      imagem: produto.imagens[0]?.url ?? '',
+      minimoUnidades: 1,
     })
     navigate('/carrinho')
   }
 
+  const media = Number(produto.mediaAvaliacao ?? 0)
+  const total_av = Number(produto.totalAvaliacoes ?? 0)
+
   return (
     <VStack align="start" gap={5}>
       {/* Categoria */}
-      <Text fontSize="sm" color="gray.500" fontWeight="500">
-        {produto.categoria}
-      </Text>
+      {produto.categoriaNome && (
+        <Text fontSize="sm" color="gray.500" fontWeight="500">
+          {produto.categoriaNome}
+        </Text>
+      )}
 
       {/* Nome */}
       <Text fontSize="2xl" fontWeight="700" color="#1a1616" lineHeight="1.2">
@@ -50,10 +57,12 @@ export const ProdutoInfo = ({ produto }: Props) => {
       </Text>
 
       {/* Avaliação */}
-      <HStack gap={2}>
-        <StarRating value={produto.estrelas} size={18} />
-        <Text fontSize="sm" color="gray.500">({produto.totalAvaliacoes} avaliações)</Text>
-      </HStack>
+      {total_av > 0 && (
+        <HStack gap={2}>
+          <StarRating value={media} size={18} />
+          <Text fontSize="sm" color="gray.500">({total_av} avaliações)</Text>
+        </HStack>
+      )}
 
       {/* Preço */}
       <HStack gap={2} align="baseline">
@@ -63,19 +72,39 @@ export const ProdutoInfo = ({ produto }: Props) => {
         <Text fontSize="sm" color="gray.500">/ unidade</Text>
       </HStack>
 
-      {/* Descrição */}
-      <Text fontSize="sm" color="gray.600" lineHeight="1.7">
-        {produto.descricao}
-      </Text>
-
       <Box w="full" borderTop="1px solid" borderColor="gray.100" />
 
+      {/* Alerta de produto esgotado */}
+      {esgotado && (
+        <Box
+          w="full"
+          px={4}
+          py={3}
+          bg="orange.50"
+          border="1px solid"
+          borderColor="orange.200"
+          borderRadius="md"
+        >
+          <HStack gap={2}>
+            <Box color="orange.500" flexShrink={0}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </Box>
+            <Text fontSize="sm" fontWeight="600" color="orange.700">
+              Produto Esgotado
+            </Text>
+          </HStack>
+          <Text fontSize="xs" color="orange.600" mt={1}>
+            Este produto está temporariamente indisponível. Entre em contato para verificar disponibilidade futura.
+          </Text>
+        </Box>
+      )}
+
       {/* Quantidade */}
-      <VStack align="start" gap={2} w="full">
+      <VStack align="start" gap={2} w="full" opacity={esgotado ? 0.4 : 1}>
         <Text fontSize="sm" fontWeight="600" color="#1a1616">
           Quantidade{' '}
           <Text as="span" fontWeight="400" color="gray.500">
-            (mínimo {produto.minimoUnidades} unidades)
+            (máximo {estoqueMax} unidades)
           </Text>
         </Text>
         <HStack gap={4}>
@@ -91,8 +120,8 @@ export const ProdutoInfo = ({ produto }: Props) => {
               py={2}
               fontSize="lg"
               color="gray.600"
-              _hover={{ bg: 'gray.50' }}
-              onClick={decrementar}
+              _hover={{ bg: esgotado ? undefined : 'gray.50' }}
+              onClick={esgotado ? undefined : decrementar}
             >
               −
             </Box>
@@ -104,9 +133,9 @@ export const ProdutoInfo = ({ produto }: Props) => {
               px={4}
               py={2}
               fontSize="lg"
-              color="gray.600"
-              _hover={{ bg: 'gray.50' }}
-              onClick={incrementar}
+              color={quantidade >= estoqueMax || esgotado ? 'gray.300' : 'gray.600'}
+              _hover={{ bg: quantidade >= estoqueMax || esgotado ? undefined : 'gray.50' }}
+              onClick={esgotado ? undefined : incrementar}
             >
               +
             </Box>
@@ -124,18 +153,19 @@ export const ProdutoInfo = ({ produto }: Props) => {
       <HStack w="full" gap={3}>
         <Button
           flex={1}
-          bg="#000000"
+          bg={esgotado ? 'gray.300' : '#000000'}
           color="white"
           fontWeight="600"
           fontSize="sm"
           py={6}
           borderRadius="md"
-          _hover={{ bg: '#111111' }}
-          onClick={handleAdicionarAoCarrinho}
+          _hover={{ bg: esgotado ? 'gray.300' : '#111111' }}
+          cursor={esgotado ? 'not-allowed' : 'pointer'}
+          disabled={esgotado}
+          onClick={esgotado ? undefined : handleAdicionarAoCarrinho}
         >
-          🛒&nbsp; Solicitar Orçamento
+          {esgotado ? 'Produto Esgotado' : '🛒\u00A0 Solicitar Orçamento'}
         </Button>
-        {/* Favoritar */}
         <Box
           as="button"
           p={3}
@@ -149,7 +179,6 @@ export const ProdutoInfo = ({ produto }: Props) => {
             <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
           </svg>
         </Box>
-        {/* Compartilhar */}
         <Box
           as="button"
           p={3}
@@ -190,7 +219,9 @@ export const ProdutoInfo = ({ produto }: Props) => {
           </Box>
           <VStack align="start" gap={0}>
             <Text fontSize="xs" fontWeight="600" color="#1a1616">Entrega Rápida</Text>
-            <Text fontSize="xs" color="gray.500">Em até 15 dias úteis</Text>
+            <Text fontSize="xs" color="gray.500">
+              {produto.prazoProducao ? `Em até ${produto.prazoProducao}` : 'Em até 15 dias úteis'}
+            </Text>
           </VStack>
         </HStack>
         <Box w="1px" h="32px" bg="gray.200" />
@@ -228,18 +259,6 @@ export const ProdutoInfo = ({ produto }: Props) => {
             _hover={{ bg: 'gray.50' }}
           >
             Falar com Consultor
-          </Button>
-          <Button
-            w="full"
-            variant="outline"
-            borderColor="gray.200"
-            color="#1a1616"
-            fontWeight="500"
-            fontSize="sm"
-            borderRadius="md"
-            _hover={{ bg: 'gray.50' }}
-          >
-            Baixar Catálogo
           </Button>
         </VStack>
       </Box>
