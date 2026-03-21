@@ -4,7 +4,7 @@ import { ProdutoDetalhe } from './pages/ProdutoDetalhe'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { MeuPerfil } from './pages/MeuPerfil'
-import { ProtectedRoute } from './components/ProtectedRoute'
+import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { CarrinhoPage } from './pages/CarrinhoPage'
@@ -27,12 +27,12 @@ export const AppRoutes = () => {
       <AuthProvider>
         <CartProvider>
           <Routes>
-            {/* Rotas públicas */}
-            <Route path="/" element={<Home />} />
-            <Route path="/produto/:id" element={<ProdutoDetalhe />} />
-            <Route path="/carrinho" element={<CarrinhoPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/cadastro" element={<Register />} />
+            {/* Rotas públicas — redireciona funcionário/admin para portal interno */}
+            <Route path="/" element={<PublicRoute><Home /></PublicRoute>} />
+            <Route path="/produto/:id" element={<PublicRoute><ProdutoDetalhe /></PublicRoute>} />
+            <Route path="/carrinho" element={<PublicRoute><CarrinhoPage /></PublicRoute>} />
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/cadastro" element={<PublicRoute><Register /></PublicRoute>} />
 
             {/* Rotas para CLIENTE autenticado */}
             <Route
