@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Flex, HStack, Heading, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, Container, Flex, HStack, Heading, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Spinner, Stack, Text } from '@chakra-ui/react'
 import { SectionCard, SearchInput, SelectLike } from '../estoque/components'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 
@@ -8,7 +8,7 @@ import { produtoService } from '../../services/produtoService'
 import type { ProdutoResponse, ProdutoRequest } from '../../services/produtoService'
 import { formatBRL, formatInt } from '../estoque/format'
 import { PencilIcon } from '../../components/icons'
-import ProdutoUpsertDialog, { ConfirmDeleteDialog } from './modals'
+import ProdutoUpsertDialog from './modals'
 
 const StatusProdutoPill = ({ status }: { status: string }) => {
   const isAtivo = status === 'ATIVO'
@@ -106,11 +106,8 @@ export const ProdutosPage = () => {
   const [produtoEditando, setProdutoEditando] = useState<ProdutoResponse | null>(null)
   const [openEdicao, setOpenEdicao] = useState(false)
 
-  // Exclusão
-  const [produtoExcluindo, setProdutoExcluindo] = useState<ProdutoResponse | null>(null)
-  const [openDelete, setOpenDelete] = useState(false)
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  // Toggle loading
+  const [togglingId, setTogglingId] = useState<number | null>(null)
 
   const fetchProdutos = () => {
     const controller = new AbortController()
@@ -157,8 +154,7 @@ export const ProdutosPage = () => {
     { label: 'Produto', w: '320px' },
     { label: 'Status', w: '120px', align: 'center' as const },
     { label: 'Valor Total', w: '120px', align: 'right' as const },
-    { label: 'Quantidade Disponível', w: '140px', align: 'right' as const },
-    { label: 'Ações', w: '80px', align: 'center' as const },
+    { label: 'Ações', w: '160px', align: 'center' as const },
   ]
 
   const totalProdutos = produtos.length
@@ -189,25 +185,15 @@ export const ProdutosPage = () => {
     setProdutoEditando(null)
   }
 
-  const handleAbrirDelete = (produto: ProdutoResponse) => {
-    setProdutoExcluindo(produto)
-    setDeleteError(null)
-    setOpenDelete(true)
-  }
-
-  const handleConfirmarDelete = async () => {
-    if (!produtoExcluindo) return
-    setDeleteSubmitting(true)
-    setDeleteError(null)
+  const handleToggleStatus = async (produto: ProdutoResponse) => {
+    setTogglingId(produto.id)
     try {
-      await produtoService.remover(produtoExcluindo.id, token)
+      await produtoService.toggleStatus(produto.id, token)
       await reloadProdutos()
-      setOpenDelete(false)
-      setProdutoExcluindo(null)
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir produto')
+      // ignore
     } finally {
-      setDeleteSubmitting(false)
+      setTogglingId(null)
     }
   }
 
@@ -293,6 +279,31 @@ export const ProdutosPage = () => {
                           {col.label}
                         </Box>
                       ))}
+                      <Box
+                        as="th"
+                        textAlign="right"
+                        fontSize="xs"
+                        color="gray.500"
+                        fontWeight="700"
+                        px={3}
+                        py={3}
+                        borderBottom="1px solid"
+                        borderColor="gray.200"
+                        w="140px"
+                      >
+                        <HStack gap={1} justify="flex-end">
+                          <span>Qtd. Disponível</span>
+                          <Box
+                            as="span"
+                            cursor="help"
+                            color="gray.400"
+                            lineHeight="1"
+                            title="Calculado automaticamente com base no estoque das matérias-primas utilizadas na produção"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                          </Box>
+                        </HStack>
+                      </Box>
                     </Box>
                   </Box>
                   <Box as="tbody">{produtosFiltrados.map((p) => {
@@ -313,14 +324,13 @@ export const ProdutosPage = () => {
                           {formatBRL(valor)}
                         </Box>
 
-                        <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
-                          {formatInt(p.estoqueAtual ?? 0)}
-                        </Box>
-
                         <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
+                          {togglingId === p.id ? (
+                            <Spinner size="sm" color="gray.400" />
+                          ) : (
                           <PopoverRoot positioning={{ placement: 'bottom-end' }}>
                             <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto">
+                              <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto" disabled={togglingId !== null}>
                                 <PencilIcon size={16} />
                               </Button>
                             </PopoverTrigger>
@@ -331,14 +341,31 @@ export const ProdutosPage = () => {
                                     <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={() => handleAbrirEdicao(p)}>
                                       Editar
                                     </Button>
-                                    <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" color="red.600" _hover={{ bg: 'red.50' }} onClick={() => handleAbrirDelete(p)}>
-                                      Excluir
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      justifyContent="flex-start"
+                                      fontWeight="500"
+                                      fontSize="sm"
+                                      h="34px"
+                                      px={3}
+                                      borderRadius="sm"
+                                      color={p.status === 'ATIVO' ? 'red.600' : 'green.600'}
+                                      _hover={{ bg: p.status === 'ATIVO' ? 'red.50' : 'green.50' }}
+                                      onClick={() => handleToggleStatus(p)}
+                                    >
+                                      {p.status === 'ATIVO' ? 'Inativar' : 'Ativar'}
                                     </Button>
                                   </Stack>
                                 </PopoverBody>
                               </PopoverContent>
                             </PopoverPositioner>
                           </PopoverRoot>
+                          )}
+                        </Box>
+
+                        <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
+                          {formatInt(p.estoqueAtual ?? 0)}
                         </Box>
                       </Box>
                     )
@@ -368,20 +395,6 @@ export const ProdutosPage = () => {
         onSubmit={handleEditarProduto}
       />
 
-      {/* Diálogo de Confirmação de Exclusão */}
-      <ConfirmDeleteDialog
-        open={openDelete}
-        title="Excluir produto"
-        description={produtoExcluindo ? `Tem certeza que deseja excluir o produto "${produtoExcluindo.nome}"? Esta ação não pode ser desfeita.` : ''}
-        submitting={deleteSubmitting}
-        error={deleteError}
-        onClose={() => {
-          setOpenDelete(false)
-          setProdutoExcluindo(null)
-          setDeleteError(null)
-        }}
-        onConfirm={handleConfirmarDelete}
-      />
     </Box>
   )
 }

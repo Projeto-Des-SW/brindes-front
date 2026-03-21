@@ -38,8 +38,24 @@ export interface ProdutoResponse {
     condicoesPagamento: string | null
     prazoProducao: string | null
     observacoes: string | null
+    mediaAvaliacao: number | null
+    totalAvaliacoes: number | null
     itensFichaTecnica: ItemFichaTecnicaResponse[]
     imagens: ProdutoImagemResponse[]
+}
+
+export interface AvaliacaoResponse {
+    id: number
+    nomeCliente: string
+    nota: number
+    comentario: string | null
+    criadoEm: string
+}
+
+export interface CriarAvaliacaoRequest {
+    produtoId: number
+    nota: number
+    comentario?: string
 }
 
 export interface PageResponse<T> {
@@ -79,11 +95,11 @@ const base = () => API_ENDPOINTS.produtos
 
 export const produtoService = {
     async listar(
-        params: { page?: number; pageSize?: number },
+        params: { page?: number; pageSize?: number; status?: string },
         token?: string | null,
         signal?: AbortSignal
     ): Promise<PageResponse<ProdutoResponse>> {
-        const qs = toQueryString({ page: params.page ?? 1, pageSize: params.pageSize ?? 20 })
+        const qs = toQueryString({ page: params.page ?? 1, pageSize: params.pageSize ?? 20, ...(params.status ? { status: params.status } : {}) })
         const res = await fetch(apiUrl(`${base()}${qs}`), {
             method: 'GET',
             headers: { ...authHeaders(token) },
@@ -128,5 +144,21 @@ export const produtoService = {
             const msg = await res.text()
             throw new Error(msg || `Erro HTTP ${res.status}`)
         }
+    },
+
+    async toggleStatus(id: number, token: string | null | undefined): Promise<ProdutoResponse> {
+        const res = await fetch(apiUrl(`${base()}/${id}/toggle`), {
+            method: 'PATCH',
+            headers: authHeaders(token),
+        })
+        return getJsonOrThrow<ProdutoResponse>(res)
+    },
+
+    async listarAvaliacoes(produtoId: number): Promise<AvaliacaoResponse[]> {
+        const res = await fetch(apiUrl(`${base()}/${produtoId}/avaliacoes`), {
+            method: 'GET',
+            headers: {},
+        })
+        return getJsonOrThrow<AvaliacaoResponse[]>(res)
     },
 }
