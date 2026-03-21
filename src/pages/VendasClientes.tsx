@@ -32,6 +32,10 @@ import type {
 } from '../services/orcamentoService'
 import { SectionCard, SimpleTable } from './estoque/components'
 
+import { toaster } from '../lib/toaster'; 
+import { produtoService, type ProdutoResponse } from '../services/produtoService';
+
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 // Mapeamento de status do back-end para rótulos legíveis
@@ -597,7 +601,111 @@ interface NovaVendaModalProps {
   onClose: () => void
 }
 
-const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
+export const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
+  const { token } = useAuth();
+  
+  // ─── ESTADOS ──────────────────────────────────────────────────────────
+  const [isLoading, setIsLoading] = useState(false);
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<ProdutoResponse[]>([]);
+  
+  // Estado do Cliente
+  const [cliente, setCliente] = useState({ nome: '', telefone: '', email: '' });
+  
+  // Estado dos Produtos (Começa com 1 linha vazia)
+  const [itens, setItens] = useState([{ produtoId: '', quantidade: 1, precoUnit: 0 }]);
+  
+  // Estado do Pagamento
+  const [pagamento, setPagamento] = useState({ metodo: '', valor: 0 });
+
+  // ─── CARREGAR PRODUTOS ────────────────────────────────────────────────
+  useEffect(() => {
+    if (isOpen) {
+      produtoService.listar({ page: 1, pageSize: 100 }, token)
+        .then((res) => setProdutosDisponiveis(res.items))
+        .catch((err) => console.error("Erro ao carregar produtos", err));
+    } else {
+      // Limpa o formulário ao fechar
+      setCliente({ nome: '', telefone: '', email: '' });
+      setItens([{ produtoId: '', quantidade: 1, precoUnit: 0 }]);
+      setPagamento({ metodo: '', valor: 0});
+    }
+  }, [isOpen, token]);
+
+  // ─── LÓGICA DO CARRINHO (PRODUTOS) ────────────────────────────────────
+  const handleAddProduto = () => {
+    setItens([...itens, { produtoId: '', quantidade: 1, precoUnit: 0 }]);
+  };
+
+  const handleItemChange = (index: number, field: string, value: any) => {
+    const novosItens = [...itens];
+    novosItens[index] = { ...novosItens[index], [field]: value };
+
+    // Se o utilizador selecionar um produto, auto-preencher o preço unitário
+    if (field === 'produtoId') {
+      const prodSelecionado = produtosDisponiveis.find(p => p.id === Number(value));
+      if (prodSelecionado && prodSelecionado.precoVenda) {
+        novosItens[index].precoUnit = prodSelecionado.precoVenda;
+      }
+    }
+    setItens(novosItens);
+  };
+
+  // Cálculo Dinâmico do Total
+  const valorTotalCalculado = itens.reduce((acc, item) => acc + (item.quantidade * item.precoUnit), 0);
+
+  // ─── SUBMETER VENDA ───────────────────────────────────────────────────
+const handleSubmit = async () => {
+    try {
+      setIsLoading(true);
+
+      // Validação básica de produtos
+      const produtosValidos = itens.filter(i => i.produtoId !== '' && i.quantidade > 0);
+      if (produtosValidos.length === 0) {
+        toaster.error({ title: "Adicione pelo menos um produto válido." });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validação básica do Cliente 
+      if (!cliente.email.trim()) {
+        toaster.error({ title: "O e-mail do cliente é obrigatório." });
+        setIsLoading(false);
+        return;
+      }
+
+      // Criar a Venda 
+      const payloadOrcamento = {
+        itens: produtosValidos.map(i => ({
+          produtoId: Number(i.produtoId),
+          quantidade: Number(i.quantidade)
+        })),
+        observacoes: "Venda registada via painel administrativo",
+        nomeCliente: cliente.nome,         
+        emailCliente: cliente.email,       
+        telefoneCliente: cliente.telefone  
+      };
+
+      const orcamentoCriado = await orcamentoService.criarAdmin(token, payloadOrcamento);
+
+      // 3. Registar o Pagamento
+      if (pagamento.metodo) {
+        await orcamentoService.atualizarPagamento(token, orcamentoCriado.id, {
+          metodoPagamento: pagamento.metodo,
+          valorPago: pagamento.valor > 0 ? pagamento.valor : valorTotalCalculado
+        });
+      }
+
+      toaster.success({ title: 'Venda registada com sucesso!' });
+      onClose(); 
+    } catch (error) {
+      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao registar a venda.';
+      toaster.error({ title: errorMessage });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <DialogRoot open={isOpen} onOpenChange={(e) => (!e.open ? onClose() : null)}>
       <DialogBackdrop />
@@ -605,132 +713,117 @@ const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
         <DialogContent borderRadius="lg" maxW="720px">
           <DialogCloseTrigger />
           <DialogHeader borderBottom="1px solid" borderColor="gray.100">
-            <DialogTitle fontSize="sm" fontWeight="700">
-              Nova Venda
-            </DialogTitle>
+            <DialogTitle fontSize="sm" fontWeight="700">Nova Venda</DialogTitle>
           </DialogHeader>
 
           <DialogBody py={6}>
             <VStack align="stretch" gap={4}>
-            {/* Informações do Cliente */}
-            <Box>
-              <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>
-                Informações do Cliente
-              </Text>
-              <VStack align="stretch" gap={3}>
-                <Box>
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Nome Completo *
-                  </Text>
-                  <Input size="sm" placeholder="Digite o nome do cliente" />
-                </Box>
+              {/* ─── Informações do Cliente ─── */}
+              <Box>
+                <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>Informações do Cliente</Text>
+                <VStack align="stretch" gap={3}>
+                  <Box>
+                    <Text as="label" fontSize="xs" mb={1} display="block">Nome Completo *</Text>
+                    <Input size="sm" placeholder="Digite o nome do cliente" 
+                      value={cliente.nome} onChange={(e) => setCliente({ ...cliente, nome: e.target.value })} 
+                    />
+                  </Box>
+                  <HStack gap={3}>
+                    <Box flex="1">
+                      <Text as="label" fontSize="xs" mb={1} display="block">Telefone *</Text>
+                      <Input size="sm" placeholder="(00) 00000-0000" 
+                        value={cliente.telefone} onChange={(e) => setCliente({ ...cliente, telefone: e.target.value })}
+                      />
+                    </Box>
+                    <Box flex="1">
+                      <Text as="label" fontSize="xs" mb={1} display="block">E-mail *</Text>
+                      <Input size="sm" type="email" placeholder="email@exemplo.com" 
+                        value={cliente.email} onChange={(e) => setCliente({ ...cliente, email: e.target.value })}
+                      />
+                    </Box>
+                  </HStack>
+                </VStack>
+              </Box>
+
+              {/* ─── Produtos ─── */}
+              <Box mt={4}>
+                <HStack justify="space-between" mb={2}>
+                  <Text fontSize="xs" fontWeight="700" color="gray.500">Produtos</Text>
+                  <Button variant="ghost" size="xs" height="24px" fontSize="11px" fontWeight="600" color="gray.700" px={2}
+                    onClick={handleAddProduto}
+                  >
+                    + Adicionar Produto
+                  </Button>
+                </HStack>
+
+                <VStack align="stretch" gap={3}>
+                  {itens.map((item, index) => (
+                    <HStack key={index} gap={3} align="flex-end">
+                      <Box flex="2">
+                        <Text as="label" fontSize="xs" mb={1} display="block">Nome do Produto *</Text>
+                        <select
+                          value={item.produtoId}
+                          onChange={(e) => handleItemChange(index, 'produtoId', e.target.value)}
+                          style={{
+                            width: '100%', height: '32px', padding: '0 8px', border: '1px solid #E2E8F0',
+                            borderRadius: '6px', fontSize: '13px', background: 'white',
+                          }}
+                        >
+                          <option value="">Selecione o Produto</option>
+                          {produtosDisponiveis.map(prod => (
+                            <option key={prod.id} value={prod.id}>{prod.nome}</option>
+                          ))}
+                        </select>
+                      </Box>
+                      <Box flex="1">
+                        <Text as="label" fontSize="xs" mb={1} display="block">Quantidade *</Text>
+                        <Input size="sm" type="number" min={1} 
+                          value={item.quantidade} 
+                          onChange={(e) => handleItemChange(index, 'quantidade', Number(e.target.value))} 
+                        />
+                      </Box>
+                      <Box flex="1">
+                        <Text as="label" fontSize="xs" mb={1} display="block">Preço Unit.</Text>
+                        <Input size="sm" type="number" min={0} step="0.01" 
+                          value={item.precoUnit} 
+                          onChange={(e) => handleItemChange(index, 'precoUnit', Number(e.target.value))} 
+                        />
+                      </Box>
+                    </HStack>
+                  ))}
+                </VStack>
+              </Box>
+
+              {/* ─── Informações de Pagamento ─── */}
+              <Box mt={4}>
+                <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>Informações de Pagamento</Text>
                 <HStack gap={3}>
                   <Box flex="1">
-                    <Text as="label" fontSize="xs" mb={1} display="block">
-                      Telefone *
-                    </Text>
-                    <Input size="sm" placeholder="(00) 00000-0000" />
+                    <Text as="label" fontSize="xs" mb={1} display="block">Método de Pagamento *</Text>
+                    <select
+                      value={pagamento.metodo}
+                      onChange={(e) => setPagamento({ ...pagamento, metodo: e.target.value })}
+                      style={{
+                        width: '100%', height: '32px', padding: '0 8px', border: '1px solid #E2E8F0',
+                        borderRadius: '6px', fontSize: '13px', background: 'white',
+                      }}
+                    >
+                      <option value="">Selecione o método</option>
+                      <option value="PIX">PIX</option>
+                      <option value="BOLETO">Boleto</option>
+                      <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                      <option value="CARTAO_DEBITO">Cartão de Débito</option>
+                    </select>
                   </Box>
                   <Box flex="1">
-                    <Text as="label" fontSize="xs" mb={1} display="block">
-                      E-mail *
-                    </Text>
-                    <Input size="sm" type="email" placeholder="email@exemplo.com" />
+                    <Text as="label" fontSize="xs" mb={1} display="block">Valor Pago</Text>
+                    <Input size="sm" type="number" min={0} step="0.01" 
+                      value={pagamento.valor} 
+                      onChange={(e) => setPagamento({ ...pagamento, valor: Number(e.target.value) })}
+                    />
                   </Box>
                 </HStack>
-              </VStack>
-            </Box>
-
-            {/* Produtos */}
-            <Box mt={4}>
-              <HStack justify="space-between" mb={2}>
-                <Text fontSize="xs" fontWeight="700" color="gray.500">
-                  Produtos
-                </Text>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  height="24px"
-                  fontSize="11px"
-                  fontWeight="600"
-                  color="gray.700"
-                  px={2}
-                >
-                  + Adicionar Produto
-                </Button>
-              </HStack>
-
-              <HStack gap={3} align="flex-end">
-                <Box flex="2">
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Nome do Produto *
-                  </Text>
-                  <select
-                    style={{
-                      width: '100%',
-                      height: '32px',
-                      padding: '0 8px',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      background: 'white',
-                    }}
-                  >
-                    <option value="">Selecione o Produto</option>
-                    {/* TODO: integrar com lista de produtos */}
-                  </select>
-                </Box>
-                <Box flex="1">
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Quantidade *
-                  </Text>
-                  <Input size="sm" type="number" min={1} defaultValue={1} />
-                </Box>
-                <Box flex="1">
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Preço Unit.
-                  </Text>
-                  <Input size="sm" type="number" min={0} step="0.01" defaultValue={0} />
-                </Box>
-              </HStack>
-            </Box>
-
-            {/* Informações de Pagamento */}
-            <Box mt={4}>
-              <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>
-                Informações de Pagamento
-              </Text>
-              <HStack gap={3}>
-                <Box flex="1">
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Método de Pagamento *
-                  </Text>
-                  <select
-                    style={{
-                      width: '100%',
-                      height: '32px',
-                      padding: '0 8px',
-                      border: '1px solid #E2E8F0',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      background: 'white',
-                    }}
-                  >
-                    <option value="">Selecione o método</option>
-                    <option value="PIX">PIX</option>
-                    <option value="BOLETO">Boleto</option>
-                    <option value="CARTAO_CREDITO">Cartão de Crédito</option>
-                    <option value="CARTAO_DEBITO">Cartão de Débito</option>
-                  </select>
-                </Box>
-                <Box flex="1">
-                  <Text as="label" fontSize="xs" mb={1} display="block">
-                    Valor Pago
-                  </Text>
-                  <Input size="sm" type="number" min={0} step="0.01" defaultValue={0} />
-                </Box>
-              </HStack>
-            </Box>
+              </Box>
             </VStack>
           </DialogBody>
 
@@ -738,19 +831,17 @@ const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
 
           <DialogFooter justifyContent="space-between">
             <Box>
-              <Text fontSize="xs" color="gray.500">
-                Valor Total:
-              </Text>
+              <Text fontSize="xs" color="gray.500">Valor Total:</Text>
               <Text fontSize="lg" fontWeight="700" color="gray.900">
-                R$ 0,00
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorTotalCalculado)}
               </Text>
             </Box>
 
             <HStack gap={3}>
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button size="sm" bg="gray.900" color="white" _hover={{ bg: 'gray.800' }}>
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={isLoading}>Cancelar</Button>
+              <Button size="sm" bg="gray.900" color="white" _hover={{ bg: 'gray.800' }} 
+                onClick={handleSubmit} loading={isLoading} disabled={isLoading}
+              >
                 Criar Venda
               </Button>
             </HStack>
@@ -758,8 +849,8 @@ const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
         </DialogContent>
       </DialogPositioner>
     </DialogRoot>
-  )
-}
+  );
+};
 
 // ─── Página principal ──────────────────────────────────────────────────────────
 

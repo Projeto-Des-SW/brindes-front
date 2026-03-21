@@ -31,6 +31,14 @@ export interface CriarOrcamentoRequest {
   observacoes?: string
 }
 
+export interface CriarOrcamentoAdminRequest {
+  itens: CriarOrcamentoItemRequest[]
+  observacoes?: string
+  nomeCliente?: string
+  emailCliente?: string
+  telefoneCliente?: string
+}
+
 // ─── DTOs de Detalhe ─────────────────────────────────────────────────────────
 
 export interface HistoricoStatusItemDTO {
@@ -153,6 +161,23 @@ export const orcamentoService = {
     })
 
     return getJsonOrThrow(res)
+  },
+
+  async criarAdmin(
+    token: string | null,
+    data: CriarOrcamentoAdminRequest
+  ): Promise<OrcamentoDetalheResponseDTO> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/admin`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(token),
+      },
+      body: JSON.stringify(data),
+    })
+
+    return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
   },
 
   async obterDetalhe(
