@@ -27,17 +27,23 @@ import {
 // ─── Helpers de status ────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  ARTE_PENDENTE: 'Artes com Aprovação Pendente',
-  EM_PRODUCAO: 'Em Produção',
-  CONCLUIDO: 'Concluído',
   ORCAMENTO_SOLICITADO: 'Orçamento Solicitado',
+  PAGAMENTO_APROVADO:   'Pagamento Aprovado',
+  ARTE_PENDENTE:        'Artes com Aprovação Pendente',
+  ARTES_APROVADAS:      'Artes Aprovadas',
+  EM_PRODUCAO:          'Em Produção',
+  CONCLUIDO:            'Concluído',
+  CANCELADO:            'Cancelado',
 }
 
 const STATUS_BADGE_STYLE: Record<string, { bg: string; color: string }> = {
-  ARTE_PENDENTE: { bg: '#fef3c7', color: '#92400e' },
-  EM_PRODUCAO: { bg: '#ede9fe', color: '#5b21b6' },
-  CONCLUIDO: { bg: '#d1fae5', color: '#065f46' },
-  ORCAMENTO_SOLICITADO: { bg: '#dbeafe', color: '#1e40af' },
+  ORCAMENTO_SOLICITADO: { bg: '#ffedd5', color: '#9a3412' },
+  PAGAMENTO_APROVADO:   { bg: '#dbeafe', color: '#1e40af' },
+  ARTE_PENDENTE:        { bg: '#fef3c7', color: '#92400e' },
+  ARTES_APROVADAS:      { bg: '#d1fae5', color: '#065f46' },
+  EM_PRODUCAO:          { bg: '#ede9fe', color: '#5b21b6' },
+  CONCLUIDO:            { bg: '#d1fae5', color: '#065f46' },
+  CANCELADO:            { bg: '#fee2e2', color: '#991b1b' },
 }
 
 const ARTE_STATUS_LABEL: Record<string, string> = {
@@ -206,58 +212,92 @@ const HistoricoStatus = ({ historico, statusAtual }: HistoricoProps) => {
 
 interface ArteCardProps {
   arte: ArteDTO
+  orcamentoId: number
+  token: string | null
+  comentariosDoProduto: OrcamentoDetalheResponseDTO['comentarios']
+  onAtualizado: (data: OrcamentoDetalheResponseDTO) => void
 }
 
-const ArteCard = ({ arte }: ArteCardProps) => {
+const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado }: ArteCardProps) => {
   const [comentario, setComentario] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const arteStyle = ARTE_STATUS_STYLE[arte.status] ?? { bg: 'gray.100', color: 'gray.700' }
   const arteLabel = ARTE_STATUS_LABEL[arte.status] ?? arte.status
+
+  const handleAvaliar = async (acao: 'APROVAR' | 'SOLICITAR_AJUSTE') => {
+    if (acao === 'SOLICITAR_AJUSTE' && !comentario.trim()) {
+      setErro('Informe o que precisa ser ajustado.')
+      return
+    }
+    setSalvando(true)
+    setErro(null)
+    try {
+      const updated = await orcamentoService.avaliarArte(token, orcamentoId, arte.id, acao, comentario)
+      setComentario('')
+      onAtualizado(updated)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao salvar avaliação')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const imagemSrc = arte.imagemData ?? arte.imagemUrl ?? undefined
 
   return (
     <Box border="1px solid" borderColor="gray.200" borderRadius="md" overflow="hidden">
       {/* Imagem */}
-      <Box position="relative" bg="gray.100">
-        <Image
-          src={arte.imagemUrl}
-          alt={arte.produtoNome}
-          w="full"
-          maxH="280px"
-          objectFit="cover"
-        />
-      </Box>
+      {imagemSrc ? (
+        <Box bg="gray.100" maxH="280px" overflow="hidden">
+          <Image src={imagemSrc} alt={arte.produtoNome} w="full" maxH="280px" objectFit="cover" />
+        </Box>
+      ) : (
+        <Box bg="gray.100" h="120px" display="flex" alignItems="center" justifyContent="center">
+          <Text fontSize="xs" color="gray.400">Sem imagem</Text>
+        </Box>
+      )}
 
       {/* Info e ações */}
       <Box p={4}>
         <HStack justify="space-between" mb={1}>
-          <Text fontSize="sm" fontWeight="600" color="#1a1616">
-            {arte.produtoNome}
-          </Text>
-          <Badge
-            px={2}
-            py={0.5}
-            borderRadius="full"
-            bg={arteStyle.bg}
-            color={arteStyle.color}
-            fontSize="xs"
-            fontWeight="600"
-          >
+          <Text fontSize="sm" fontWeight="600" color="#1a1616">{arte.produtoNome}</Text>
+          <Badge px={2} py={0.5} borderRadius="full" bg={arteStyle.bg} color={arteStyle.color} fontSize="xs" fontWeight="600">
             {arteLabel}
           </Badge>
         </HStack>
-        <HStack gap={1.5} mb={3}>
+        <HStack gap={1.5} mb={comentariosDoProduto.length > 0 ? 3 : arte.status === 'PENDENTE' ? 3 : 0}>
           <Box color="gray.400"><MessageIcon /></Box>
-          <Text fontSize="xs" color="gray.500">
-            Enviado em {arte.enviadoEm}
-          </Text>
+          <Text fontSize="xs" color="gray.500">Enviado em {arte.enviadoEm}</Text>
         </HStack>
 
-        {/* Comentário */}
+        {/* Comentários anteriores deste produto */}
+        {comentariosDoProduto.length > 0 && (
+          <VStack align="stretch" gap={2} mb={arte.status === 'PENDENTE' ? 3 : 0}>
+            {comentariosDoProduto.map((c) => (
+              <Box key={c.id} bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={3}>
+                <HStack justify="space-between" mb={1}>
+                  <Text fontSize="xs" fontWeight="700" color="#1a1616">{c.autor}</Text>
+                  <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                </HStack>
+                <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+              </Box>
+            ))}
+          </VStack>
+        )}
+
+        {/* Ações (só quando PENDENTE) */}
         {arte.status === 'PENDENTE' && (
           <>
+            {erro && (
+              <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md" px={3} py={2} mb={2}>
+                <Text fontSize="xs" color="red.600">{erro}</Text>
+              </Box>
+            )}
             <Textarea
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
-              placeholder="Adicione comentários ou sugestões (opcional)"
+              placeholder="Adicione comentários ou sugestões (obrigatório para solicitar ajuste)"
               fontSize="xs"
               size="sm"
               borderColor="gray.200"
@@ -269,34 +309,25 @@ const ArteCard = ({ arte }: ArteCardProps) => {
             />
             <HStack gap={3}>
               <Button
-                flex={1}
-                size="sm"
-                bg="#15803d"
-                color="white"
-                fontWeight="600"
-                fontSize="xs"
-                borderRadius="md"
-                _hover={{ bg: '#166534' }}
+                flex={1} size="sm" bg="#15803d" color="white" fontWeight="600" fontSize="xs"
+                borderRadius="md" _hover={{ bg: '#166534' }}
+                disabled={salvando}
+                onClick={() => handleAvaliar('APROVAR')}
               >
                 <HStack gap={1.5}>
-                  <CheckIcon />
+                  {salvando ? <Spinner size="xs" /> : <CheckIcon />}
                   <Text>Aprovar Arte</Text>
                 </HStack>
               </Button>
               <Button
-                flex={1}
-                size="sm"
-                variant="outline"
-                borderColor="#dc2626"
-                color="#dc2626"
-                fontWeight="600"
-                fontSize="xs"
-                borderRadius="md"
-                _hover={{ bg: '#fee2e2' }}
+                flex={1} size="sm" variant="outline" borderColor="#dc2626" color="#dc2626"
+                fontWeight="600" fontSize="xs" borderRadius="md" _hover={{ bg: '#fee2e2' }}
+                disabled={salvando}
+                onClick={() => handleAvaliar('SOLICITAR_AJUSTE')}
               >
                 <HStack gap={1.5}>
-                  <AlertIcon />
-                  <Text>Solicitar Ajustes</Text>
+                  {salvando ? <Spinner size="xs" /> : <AlertIcon />}
+                  <Text>Solicitar Ajuste</Text>
                 </HStack>
               </Button>
             </HStack>
@@ -454,7 +485,14 @@ export const OrcamentoDetalhe = () => {
                         </HStack>
                         <VStack gap={5} align="stretch">
                           {(data.artes ?? []).map((arte) => (
-                            <ArteCard key={arte.id} arte={arte} />
+                            <ArteCard
+                              key={arte.id}
+                              arte={arte}
+                              orcamentoId={data.id}
+                              token={token}
+                              comentariosDoProduto={(data.comentarios ?? []).filter(c => c.produtoNome === arte.produtoNome)}
+                              onAtualizado={setData}
+                            />
                           ))}
                         </VStack>
                       </Box>

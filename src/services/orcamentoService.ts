@@ -24,6 +24,8 @@ export interface CriarOrcamentoItemRequest {
   quantidade: number
   cor?: string
   impressao?: string
+  precoUnitario?: number
+  desconto?: number
 }
 
 export interface CriarOrcamentoRequest {
@@ -53,7 +55,9 @@ export interface HistoricoStatusItemDTO {
 export interface ArteDTO {
   id: number
   produtoNome: string
-  imagemUrl: string
+  imagemUrl?: string | null
+  nomeArquivo?: string // Nome original do arquivo com extensão
+  imagemData?: string | null // Imagem em base64 para renderizar no frontend
   status: 'PENDENTE' | 'APROVADA' | 'AJUSTE_SOLICITADO'
   enviadoEm: string
 }
@@ -67,6 +71,7 @@ export interface OrcamentoProdutoDetalheDTO {
   impressao?: string | null
   imagemUrl?: string | null
   precoUnitario: number
+  desconto: number
   precoTotal: number
 }
 
@@ -74,6 +79,7 @@ export interface ComentarioOrcamentoDTO {
   id: number
   autor: string
   mensagem: string
+  produtoNome?: string | null
   criadoEm: string
 }
 
@@ -84,6 +90,7 @@ export interface OrcamentoDetalheResponseDTO {
   dataCriacao?: string | null
   dataPrevisaoEntrega?: string | null
   subtotal: number
+  descontoTotal: number
   frete: number
   valorTotal: number
   nomeCliente?: string | null
@@ -216,6 +223,82 @@ export const orcamentoService = {
       body: JSON.stringify(data),
     })
     return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
+  },
+
+  async uploadArte(
+    token: string | null,
+    orcamentoId: number,
+    produtoNome: string,
+    arquivo: File,
+  ): Promise<ArteDTO> {
+    const form = new FormData()
+    form.append('produtoNome', produtoNome)
+    form.append('arquivo', arquivo)
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/${orcamentoId}/artes`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: authHeaders(token), // sem Content-Type: browser define boundary do multipart
+      body: form,
+    })
+    return getJsonOrThrow<ArteDTO>(res)
+  },
+
+  async downloadArte(token: string | null, arteId: number): Promise<void> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/artes/${arteId}/download`)
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: authHeaders(token),
+    })
+
+    if (!res.ok) {
+      throw new Error('Erro ao baixar arquivo')
+    }
+
+    // Extrair nome do arquivo do header Content-Disposition
+    const contentDisposition = res.headers.get('Content-Disposition')
+    let nomeArquivo = 'arte.jpg'
+    if (contentDisposition) {
+      const matches = contentDisposition.match(/filename="(.+?)"/)
+      if (matches && matches[1]) {
+        nomeArquivo = matches[1]
+      }
+    }
+
+    // Converter response em blob e fazer download
+    const blob = await res.blob()
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = nomeArquivo
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  },
+
+  async avaliarArte(
+    token: string | null,
+    orcamentoId: number,
+    arteId: number,
+    acao: 'APROVAR' | 'SOLICITAR_AJUSTE',
+    comentario?: string,
+  ): Promise<OrcamentoDetalheResponseDTO> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/meus/${orcamentoId}/artes/${arteId}/avaliar`)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+      body: JSON.stringify({ acao, comentario: comentario ?? '' }),
+    })
+    return getJsonOrThrow<OrcamentoDetalheResponseDTO>(res)
+  },
+
+  async notificar(
+    token: string | null,
+    orcamentoId: number,
+    tipo: 'status' | 'arte',
+  ): Promise<void> {
+    const url = apiUrl(`${API_ENDPOINTS.orcamentos}/${orcamentoId}/notificar/${tipo}`)
+    const res = await fetch(url, { method: 'POST', headers: authHeaders(token) })
+    if (!res.ok) throw new Error(await res.text())
   },
 
   async atualizarStatus(
