@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import nfeJpg from '../assets/nfe.jpg'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import {
   Badge,
   Box,
@@ -22,22 +23,30 @@ import {
   orcamentoService,
   type ArteDTO,
   type OrcamentoDetalheResponseDTO,
+  type OrcamentoProdutoDetalheDTO,
 } from '../services/orcamentoService'
+import { StarRating } from '../components/produto/StarRating'
 
 // ─── Helpers de status ────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  ARTE_PENDENTE: 'Artes com Aprovação Pendente',
-  EM_PRODUCAO: 'Em Produção',
-  CONCLUIDO: 'Concluído',
   ORCAMENTO_SOLICITADO: 'Orçamento Solicitado',
+  PAGAMENTO_APROVADO:   'Pagamento Aprovado',
+  ARTE_PENDENTE:        'Artes com Aprovação Pendente',
+  ARTES_APROVADAS:      'Artes Aprovadas',
+  EM_PRODUCAO:          'Em Produção',
+  CONCLUIDO:            'Concluído',
+  CANCELADO:            'Cancelado',
 }
 
 const STATUS_BADGE_STYLE: Record<string, { bg: string; color: string }> = {
-  ARTE_PENDENTE: { bg: '#fef3c7', color: '#92400e' },
-  EM_PRODUCAO: { bg: '#ede9fe', color: '#5b21b6' },
-  CONCLUIDO: { bg: '#d1fae5', color: '#065f46' },
-  ORCAMENTO_SOLICITADO: { bg: '#dbeafe', color: '#1e40af' },
+  ORCAMENTO_SOLICITADO: { bg: '#ffedd5', color: '#9a3412' },
+  PAGAMENTO_APROVADO:   { bg: '#dbeafe', color: '#1e40af' },
+  ARTE_PENDENTE:        { bg: '#fef3c7', color: '#92400e' },
+  ARTES_APROVADAS:      { bg: '#d1fae5', color: '#065f46' },
+  EM_PRODUCAO:          { bg: '#ede9fe', color: '#5b21b6' },
+  CONCLUIDO:            { bg: '#d1fae5', color: '#065f46' },
+  CANCELADO:            { bg: '#fee2e2', color: '#991b1b' },
 }
 
 const ARTE_STATUS_LABEL: Record<string, string> = {
@@ -206,58 +215,92 @@ const HistoricoStatus = ({ historico, statusAtual }: HistoricoProps) => {
 
 interface ArteCardProps {
   arte: ArteDTO
+  orcamentoId: number
+  token: string | null
+  comentariosDoProduto: OrcamentoDetalheResponseDTO['comentarios']
+  onAtualizado: (data: OrcamentoDetalheResponseDTO) => void
 }
 
-const ArteCard = ({ arte }: ArteCardProps) => {
+const ArteCard = ({ arte, orcamentoId, token, comentariosDoProduto, onAtualizado }: ArteCardProps) => {
   const [comentario, setComentario] = useState('')
+  const [salvando, setSalvando] = useState<'APROVAR' | 'SOLICITAR_AJUSTE' | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const arteStyle = ARTE_STATUS_STYLE[arte.status] ?? { bg: 'gray.100', color: 'gray.700' }
   const arteLabel = ARTE_STATUS_LABEL[arte.status] ?? arte.status
+
+  const handleAvaliar = async (acao: 'APROVAR' | 'SOLICITAR_AJUSTE') => {
+    if (acao === 'SOLICITAR_AJUSTE' && !comentario.trim()) {
+      setErro('Informe o que precisa ser ajustado.')
+      return
+    }
+    setSalvando(acao)
+    setErro(null)
+    try {
+      const updated = await orcamentoService.avaliarArte(token, orcamentoId, arte.id, acao, comentario)
+      setComentario('')
+      onAtualizado(updated)
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao salvar avaliação')
+    } finally {
+      setSalvando(null)
+    }
+  }
+
+  const imagemSrc = arte.imagemData ?? arte.imagemUrl ?? undefined
 
   return (
     <Box border="1px solid" borderColor="gray.200" borderRadius="md" overflow="hidden">
       {/* Imagem */}
-      <Box position="relative" bg="gray.100">
-        <Image
-          src={arte.imagemUrl}
-          alt={arte.produtoNome}
-          w="full"
-          maxH="280px"
-          objectFit="cover"
-        />
-      </Box>
+      {imagemSrc ? (
+        <Box bg="gray.100" maxH="280px" overflow="hidden">
+          <Image src={imagemSrc} alt={arte.produtoNome} w="full" maxH="280px" objectFit="cover" />
+        </Box>
+      ) : (
+        <Box bg="gray.100" h="120px" display="flex" alignItems="center" justifyContent="center">
+          <Text fontSize="xs" color="gray.400">Sem imagem</Text>
+        </Box>
+      )}
 
       {/* Info e ações */}
       <Box p={4}>
         <HStack justify="space-between" mb={1}>
-          <Text fontSize="sm" fontWeight="600" color="#1a1616">
-            {arte.produtoNome}
-          </Text>
-          <Badge
-            px={2}
-            py={0.5}
-            borderRadius="full"
-            bg={arteStyle.bg}
-            color={arteStyle.color}
-            fontSize="xs"
-            fontWeight="600"
-          >
+          <Text fontSize="sm" fontWeight="600" color="#1a1616">{arte.produtoNome}</Text>
+          <Badge px={2} py={0.5} borderRadius="full" bg={arteStyle.bg} color={arteStyle.color} fontSize="xs" fontWeight="600">
             {arteLabel}
           </Badge>
         </HStack>
-        <HStack gap={1.5} mb={3}>
+        <HStack gap={1.5} mb={comentariosDoProduto.length > 0 ? 3 : arte.status === 'PENDENTE' ? 3 : 0}>
           <Box color="gray.400"><MessageIcon /></Box>
-          <Text fontSize="xs" color="gray.500">
-            Enviado em {arte.enviadoEm}
-          </Text>
+          <Text fontSize="xs" color="gray.500">Enviado em {arte.enviadoEm}</Text>
         </HStack>
 
-        {/* Comentário */}
+        {/* Comentários anteriores deste produto */}
+        {comentariosDoProduto.length > 0 && (
+          <VStack align="stretch" gap={2} mb={arte.status === 'PENDENTE' ? 3 : 0}>
+            {comentariosDoProduto.map((c) => (
+              <Box key={c.id} bg="gray.50" border="1px solid" borderColor="gray.200" borderRadius="md" p={3}>
+                <HStack justify="space-between" mb={1}>
+                  <Text fontSize="xs" fontWeight="700" color="#1a1616">{c.autor}</Text>
+                  <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                </HStack>
+                <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+              </Box>
+            ))}
+          </VStack>
+        )}
+
+        {/* Ações (só quando PENDENTE) */}
         {arte.status === 'PENDENTE' && (
           <>
+            {erro && (
+              <Box bg="red.50" border="1px solid" borderColor="red.200" borderRadius="md" px={3} py={2} mb={2}>
+                <Text fontSize="xs" color="red.600">{erro}</Text>
+              </Box>
+            )}
             <Textarea
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
-              placeholder="Adicione comentários ou sugestões (opcional)"
+              placeholder="Adicione comentários ou sugestões (obrigatório para solicitar ajuste)"
               fontSize="xs"
               size="sm"
               borderColor="gray.200"
@@ -269,40 +312,166 @@ const ArteCard = ({ arte }: ArteCardProps) => {
             />
             <HStack gap={3}>
               <Button
-                flex={1}
-                size="sm"
-                bg="#15803d"
-                color="white"
-                fontWeight="600"
-                fontSize="xs"
-                borderRadius="md"
-                _hover={{ bg: '#166534' }}
+                flex={1} size="sm" bg="#15803d" color="white" fontWeight="600" fontSize="xs"
+                borderRadius="md" _hover={{ bg: '#166534' }}
+                disabled={salvando !== null}
+                onClick={() => handleAvaliar('APROVAR')}
               >
                 <HStack gap={1.5}>
-                  <CheckIcon />
+                  {salvando === 'APROVAR' ? <Spinner size="xs" /> : <CheckIcon />}
                   <Text>Aprovar Arte</Text>
                 </HStack>
               </Button>
               <Button
-                flex={1}
-                size="sm"
-                variant="outline"
-                borderColor="#dc2626"
-                color="#dc2626"
-                fontWeight="600"
-                fontSize="xs"
-                borderRadius="md"
-                _hover={{ bg: '#fee2e2' }}
+                flex={1} size="sm" variant="outline" borderColor="#dc2626" color="#dc2626"
+                fontWeight="600" fontSize="xs" borderRadius="md" _hover={{ bg: '#fee2e2' }}
+                disabled={salvando !== null}
+                onClick={() => handleAvaliar('SOLICITAR_AJUSTE')}
               >
                 <HStack gap={1.5}>
-                  <AlertIcon />
-                  <Text>Solicitar Ajustes</Text>
+                  {salvando === 'SOLICITAR_AJUSTE' ? <Spinner size="xs" /> : <AlertIcon />}
+                  <Text>Solicitar Ajuste</Text>
                 </HStack>
               </Button>
             </HStack>
           </>
         )}
       </Box>
+    </Box>
+  )
+}
+
+// ─── Sub-componente: Avaliar Produto ─────────────────────────────────────────
+
+interface AvaliarProdutoCardProps {
+  produto: OrcamentoProdutoDetalheDTO
+  orcamentoId: number
+  token: string | null
+  onAvaliado: () => void
+}
+
+const AvaliarProdutoCard = ({ produto, orcamentoId, token, onAvaliado }: AvaliarProdutoCardProps) => {
+  const [nota, setNota] = useState(0)
+  const [hoverNota, setHoverNota] = useState(0)
+  const [comentario, setComentario] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [notaEnviada, setNotaEnviada] = useState<number>(produto.notaAvaliacao ?? 0)
+  const [comentarioEnviado, setComentarioEnviado] = useState<string | null>(produto.comentarioAvaliacao ?? null)
+  const [avaliado, setAvaliado] = useState(produto.jaAvaliado ?? false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  if (!produto.produtoId) return null
+
+  const handleEnviar = async () => {
+    if (nota === 0) { setErro('Selecione uma nota.'); return }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await orcamentoService.criarAvaliacao(token, orcamentoId, {
+        produtoId: produto.produtoId!,
+        nota,
+        comentario: comentario.trim() || undefined,
+      })
+      setNotaEnviada(nota)
+      setComentarioEnviado(comentario.trim() || null)
+      setAvaliado(true)
+      onAvaliado()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao enviar avaliação')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  if (avaliado) {
+    return (
+      <Box bg="green.50" border="1px solid" borderColor="green.200" borderRadius="md" p={4}>
+        <HStack gap={2} mb={2}>
+          <Box color="green.600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </Box>
+          <Text fontSize="xs" fontWeight="700" color="green.700">Você avaliou este produto</Text>
+        </HStack>
+        <HStack gap={2}>
+          <StarRating value={notaEnviada} size={14} />
+          <Text fontSize="xs" color="gray.500">
+            {['', 'Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente'][notaEnviada] ?? ''}
+          </Text>
+        </HStack>
+        {comentarioEnviado && (
+          <Text fontSize="xs" color="gray.600" mt={2} fontStyle="italic">
+            "{comentarioEnviado}"
+          </Text>
+        )}
+      </Box>
+    )
+  }
+
+  return (
+    <Box border="1px solid" borderColor="gray.200" borderRadius="md" p={4} bg="gray.50">
+      <Text fontSize="sm" fontWeight="600" color="#1a1616" mb={3}>
+        Avalie: {produto.nome}
+      </Text>
+
+      {/* Seletor de estrelas */}
+      <HStack gap={1} mb={3}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Box
+            key={star}
+            as="button"
+            cursor="pointer"
+            color={(hoverNota || nota) >= star ? '#f59e0b' : 'gray.300'}
+            transition="color 0.1s"
+            onMouseEnter={() => setHoverNota(star)}
+            onMouseLeave={() => setHoverNota(0)}
+            onClick={() => setNota(star)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </Box>
+        ))}
+        {nota > 0 && (
+          <Text fontSize="xs" color="gray.500" ml={2}>
+            {['', 'Ruim', 'Regular', 'Bom', 'Ótimo', 'Excelente'][nota]}
+          </Text>
+        )}
+      </HStack>
+
+      <Textarea
+        value={comentario}
+        onChange={(e) => setComentario(e.target.value)}
+        placeholder="Comentário (opcional)"
+        fontSize="xs"
+        size="sm"
+        borderColor="gray.200"
+        borderRadius="md"
+        resize="none"
+        rows={2}
+        mb={3}
+        bg="white"
+        _focus={{ borderColor: '#1a1616', boxShadow: 'none' }}
+      />
+
+      {erro && (
+        <Text fontSize="xs" color="red.500" mb={2}>{erro}</Text>
+      )}
+
+      <Button
+        size="sm"
+        bg="#1a1616"
+        color="white"
+        fontWeight="600"
+        fontSize="xs"
+        borderRadius="md"
+        _hover={{ bg: '#333' }}
+        disabled={salvando}
+        onClick={handleEnviar}
+      >
+        {salvando ? <Spinner size="xs" /> : 'Enviar Avaliação'}
+      </Button>
     </Box>
   )
 }
@@ -347,6 +516,146 @@ export const OrcamentoDetalhe = () => {
   const statusLabel = data
     ? (STATUS_LABEL[data.status] ?? data.status)
     : ''
+
+  const gerarRecibo = () => {
+    if (!data) return
+    const doc = new jsPDF()
+    const pageW = doc.internal.pageSize.getWidth()
+    const gray = '#6B7280'
+    const dark = '#111827'
+
+    // ── Cabeçalho ──
+    doc.setFontSize(20)
+    doc.setTextColor(dark)
+    doc.setFont('helvetica', 'bold')
+    doc.text('RECIBO DE PEDIDO', pageW / 2, 20, { align: 'center' })
+
+    doc.setFontSize(10)
+    doc.setTextColor(gray)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Bahia Brindes', pageW / 2, 28, { align: 'center' })
+
+    // ── Linha divisória ──
+    doc.setDrawColor('#E5E7EB')
+    doc.line(14, 33, pageW - 14, 33)
+
+    // ── Informações do pedido ──
+    doc.setFontSize(10)
+    doc.setTextColor(dark)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PEDIDO', 14, 41)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.codigo ?? `#${data.id}`, 14, 47)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('STATUS', pageW / 2, 41, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(STATUS_LABEL[data.status] ?? data.status, pageW / 2, 47, { align: 'center' })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('DATA', pageW - 14, 41, { align: 'right' })
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.dataCriacao ?? '—', pageW - 14, 47, { align: 'right' })
+
+    // ── Dados do cliente ──
+    doc.line(14, 52, pageW - 14, 52)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('CLIENTE', 14, 59)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(gray)
+    doc.text(data.nomeCliente ?? '—', 14, 65)
+    if (data.emailCliente) doc.text(data.emailCliente, 14, 70)
+    if (data.telefoneCliente) doc.text(data.telefoneCliente, 14, 75)
+
+    // ── Tabela de produtos ──
+    const tableTop = data.emailCliente ? (data.telefoneCliente ? 82 : 77) : 72
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(dark)
+    doc.text('PRODUTOS', 14, tableTop)
+
+    autoTable(doc, {
+      startY: tableTop + 4,
+      head: [['Produto', 'Qtd', 'Valor Unit.', 'Desconto', 'Total']],
+      body: (data.produtos ?? []).map(p => [
+        p.nome,
+        String(p.quantidade),
+        formatPreco(Number(p.precoUnitario ?? 0)),
+        p.desconto && Number(p.desconto) > 0 ? `- ${formatPreco(Number(p.desconto))}` : '—',
+        formatPreco(Number(p.precoTotal ?? 0)),
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: '#1F2937', textColor: '#FFFFFF', fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: '#F9FAFB' },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { halign: 'center', cellWidth: 18 },
+        2: { halign: 'right', cellWidth: 32 },
+        3: { halign: 'right', cellWidth: 28 },
+        4: { halign: 'right', cellWidth: 32 },
+      },
+      margin: { left: 14, right: 14 },
+    })
+
+    // ── Totais ──
+    const finalY = (doc as any).lastAutoTable.finalY + 8
+    const col1 = pageW - 80
+    const col2 = pageW - 14
+
+    const addTotalRow = (label: string, value: string, y: number, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(bold ? 10 : 9)
+      doc.setTextColor(bold ? dark : gray)
+      doc.text(label, col1, y)
+      doc.text(value, col2, y, { align: 'right' })
+    }
+
+    let y = finalY
+    addTotalRow('Subtotal:', formatPreco(Number(data.subtotal ?? 0)), y)
+    if (Number(data.descontoTotal ?? 0) > 0) {
+      y += 6
+      addTotalRow('Desconto:', `- ${formatPreco(Number(data.descontoTotal))}`, y)
+    }
+    y += 6
+    doc.setDrawColor('#E5E7EB')
+    doc.line(col1, y - 2, col2, y - 2)
+    addTotalRow('TOTAL:', formatPreco(Number(data.valorTotal ?? 0)), y + 2, true)
+
+    if (Number(data.valorPago ?? 0) > 0) {
+      y += 10
+      addTotalRow('Valor Pago:', formatPreco(Number(data.valorPago)), y)
+      const restante = Number(data.valorTotal ?? 0) - Number(data.valorPago ?? 0)
+      if (restante > 0) {
+        y += 6
+        doc.setTextColor('#DC2626')
+        addTotalRow('Saldo Restante:', formatPreco(restante), y)
+      }
+    }
+
+    // ── Método de pagamento ──
+    if (data.metodoPagamento) {
+      y += 12
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(gray)
+      doc.text(`Forma de pagamento: ${data.metodoPagamento}`, 14, y)
+    }
+
+    // ── Rodapé ──
+    const pageH = doc.internal.pageSize.getHeight()
+    doc.setFontSize(8)
+    doc.setTextColor('#9CA3AF')
+    doc.text('Documento gerado por Bahia Brindes', pageW / 2, pageH - 10, { align: 'center' })
+
+    doc.save(`recibo-${data.codigo ?? data.id}.pdf`)
+  }
 
   return (
     <Box minH="100vh" bg="gray.50" display="flex" flexDirection="column">
@@ -443,8 +752,9 @@ export const OrcamentoDetalhe = () => {
                       <HistoricoStatus historico={data.historico ?? []} statusAtual={data.status} />
                     )}
 
-                    {/* Artes para Aprovação */}
-                    {(data.artes ?? []).length > 0 && (
+                    {/* Artes para Aprovação — visível apenas a partir de ARTE_PENDENTE */}
+                    {(data.artes ?? []).length > 0 &&
+                     ['ARTE_PENDENTE','ARTES_APROVADAS','EM_PRODUCAO','CONCLUIDO'].includes(data.status) && (
                       <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="lg" p={6}>
                         <HStack gap={2} mb={5}>
                           <Box color="gray.600"><DocumentIcon /></Box>
@@ -454,7 +764,14 @@ export const OrcamentoDetalhe = () => {
                         </HStack>
                         <VStack gap={5} align="stretch">
                           {(data.artes ?? []).map((arte) => (
-                            <ArteCard key={arte.id} arte={arte} />
+                            <ArteCard
+                              key={arte.id}
+                              arte={arte}
+                              orcamentoId={data.id}
+                              token={token}
+                              comentariosDoProduto={(data.comentarios ?? []).filter(c => c.produtoNome === arte.produtoNome)}
+                              onAtualizado={setData}
+                            />
                           ))}
                         </VStack>
                       </Box>
@@ -471,73 +788,84 @@ export const OrcamentoDetalhe = () => {
                         </HStack>
                         <VStack gap={4} align="stretch">
                           {(data.produtos ?? []).map((produto) => (
-                            <HStack
-                              key={produto.id}
-                              gap={4}
-                              p={4}
-                              bg="gray.50"
-                              borderRadius="md"
-                              align="start"
-                            >
-                              {/* Imagem */}
-                              <Box
-                                w="80px"
-                                h="80px"
+                            <VStack key={produto.id} gap={3} align="stretch">
+                              <HStack
+                                gap={4}
+                                p={4}
+                                bg="gray.50"
                                 borderRadius="md"
-                                overflow="hidden"
-                                flexShrink={0}
-                                bg="gray.200"
-                                border="1px solid"
-                                borderColor="gray.200"
+                                align="start"
                               >
-                                <Image
-                                  src={produto.imagemUrl ?? ''}
-                                  alt={produto.nome}
-                                  w="full"
-                                  h="full"
-                                  objectFit="cover"
-                                />
-                              </Box>
+                                {/* Imagem */}
+                                <Box
+                                  w="80px"
+                                  h="80px"
+                                  borderRadius="md"
+                                  overflow="hidden"
+                                  flexShrink={0}
+                                  bg="gray.200"
+                                  border="1px solid"
+                                  borderColor="gray.200"
+                                >
+                                  <Image
+                                    src={produto.imagemUrl ?? ''}
+                                    alt={produto.nome}
+                                    w="full"
+                                    h="full"
+                                    objectFit="cover"
+                                  />
+                                </Box>
 
-                              {/* Detalhes */}
-                              <Box flex={1} minW={0}>
-                                <Text fontSize="sm" fontWeight="700" color="#1a1616" mb={1}>
-                                  {produto.nome}
-                                </Text>
-                                <VStack align="start" gap={0.5}>
-                                  <Text fontSize="xs" color="gray.600">
-                                    Quantidade: {produto.quantidade} unidades
+                                {/* Detalhes */}
+                                <Box flex={1} minW={0}>
+                                  <Text fontSize="sm" fontWeight="700" color="#1a1616" mb={1}>
+                                    {produto.nome}
                                   </Text>
-                                  {produto.cor && (
+                                  <VStack align="start" gap={0.5}>
                                     <Text fontSize="xs" color="gray.600">
-                                      Cor: {produto.cor}
+                                      Quantidade: {produto.quantidade} unidades
                                     </Text>
-                                  )}
-                                  {produto.tamanho && (
-                                    <Text fontSize="xs" color="gray.600">
-                                      Tamanho: {produto.tamanho}
-                                    </Text>
-                                  )}
-                                  {produto.impressao && (
-                                    <Text fontSize="xs" color="gray.600">
-                                      Impressão: {produto.impressao}
-                                    </Text>
-                                  )}
-                                </VStack>
-                              </Box>
+                                    {produto.cor && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Cor: {produto.cor}
+                                      </Text>
+                                    )}
+                                    {produto.tamanho && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Tamanho: {produto.tamanho}
+                                      </Text>
+                                    )}
+                                    {produto.impressao && (
+                                      <Text fontSize="xs" color="gray.600">
+                                        Impressão: {produto.impressao}
+                                      </Text>
+                                    )}
+                                  </VStack>
+                                </Box>
 
-                              {/* Preços */}
-                              <VStack align="end" gap={0.5} flexShrink={0}>
-                                <Text fontSize="xs" color="gray.500">Valor unitário</Text>
-                                <Text fontSize="sm" fontWeight="600" color="#1a1616">
-                                  {formatPreco(produto.precoUnitario)}
-                                </Text>
-                                <Text fontSize="xs" color="gray.500" mt={1}>Total</Text>
-                                <Text fontSize="sm" fontWeight="700" color="#1a1616">
-                                  {formatPreco(produto.precoTotal)}
-                                </Text>
-                              </VStack>
-                            </HStack>
+                                {/* Preços */}
+                                <VStack align="end" gap={0.5} flexShrink={0}>
+                                  <Text fontSize="xs" color="gray.500">Valor unitário</Text>
+                                  <Text fontSize="sm" fontWeight="600" color="#1a1616">
+                                    {formatPreco(produto.precoUnitario)}
+                                  </Text>
+                                  <Text fontSize="xs" color="gray.500" mt={1}>Total</Text>
+                                  <Text fontSize="sm" fontWeight="700" color="#1a1616">
+                                    {formatPreco(produto.precoTotal)}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+
+                              {/* Avaliação — só quando CONCLUIDO e produto tem id */}
+                              {data.status === 'CONCLUIDO' && produto.produtoId && (
+                                <AvaliarProdutoCard
+                                  produto={produto}
+                                  orcamentoId={data.id}
+                                  token={token}
+                                  onAvaliado={() => {}}
+                                />
+                              )}
+                            </VStack>
                           ))}
                         </VStack>
                       </Box>
@@ -635,18 +963,11 @@ export const OrcamentoDetalhe = () => {
                           fontSize="sm"
                           borderRadius="md"
                           _hover={{ bg: 'gray.50' }}
-                          onClick={() => {
-                            const a = document.createElement('a')
-                            a.href = nfeJpg
-                            a.download = 'nota-fiscal.jpg'
-                            document.body.appendChild(a)
-                            a.click()
-                            a.remove()
-                          }}
+                          onClick={gerarRecibo}
                         >
                           <HStack gap={2}>
                             <DownloadIcon />
-                            <Text>Baixar Nota Fiscal</Text>
+                            <Text>Baixar Recibo</Text>
                           </HStack>
                         </Button>
                       </VStack>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Badge, Box, Button, Flex, Input, SimpleGrid, Text } from '@chakra-ui/react'
-import { EyeIcon, PencilIcon, SearchIcon, TrashIcon } from '../../components/icons'
+import { Badge, Box, Button, Flex, Input, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Stack, Text } from '@chakra-ui/react'
+import { EyeIcon, PencilIcon, SearchIcon } from '../../components/icons'
 import type { MovimentacaoRow, ProdutoEstoqueRow, StatusEstoque, TipoMovimentacao } from './types'
 import { formatBRL, formatInt } from './format'
 
@@ -74,7 +74,7 @@ export const CardsResumoGrid = ({
 
   const dash = '—'
   return (
-    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
+    <SimpleGrid mt={5} columns={{ base: 1, md: 3 }} gap={4}>
       <CardResumo
         title="Valor Total em Estoque"
         value={loading ? dash : formatBRL(Number(v.valorTotalEmEstoque ?? 0))}
@@ -88,11 +88,6 @@ export const CardsResumoGrid = ({
       <CardResumo
         title="Total de Matérias Primas"
         value={loading ? dash : formatInt(Number(v.totalMateriasPrimas ?? 0))}
-        subtitle=""
-      />
-      <CardResumo
-        title="Produtos sem movimentação"
-        value={loading ? dash : formatInt(Number(v.produtosSemMovimentacao ?? 0))}
         subtitle=""
       />
     </SimpleGrid>
@@ -335,16 +330,59 @@ export const ProdutosTable = ({ rows, onView }: { rows: ProdutoEstoqueRow[]; onV
   )
 }
 
+const RowActionsMovPopover = ({
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  onView?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+}) => (
+  <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" h="28px" w="28px" p={0}>
+        <PencilIcon size={16} />
+      </Button>
+    </PopoverTrigger>
+    <PopoverPositioner>
+      <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+        <PopoverBody p={1}>
+          <Stack gap={0}>
+            {onView && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={onView}>
+                Visualizar
+              </Button>
+            )}
+            {onEdit && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={onEdit}>
+                Editar
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" color="red.600" _hover={{ bg: 'red.50' }} onClick={onDelete}>
+                Excluir
+              </Button>
+            )}
+          </Stack>
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverPositioner>
+  </PopoverRoot>
+)
+
 const badgePaletteFromTipo = (tipo: TipoMovimentacao) => {
   return tipo === 'Entrada' ? 'blue' : 'orange'
 }
 
 export const MovimentacoesTable = ({
   rows,
+  onView,
   onEdit,
   onDelete,
 }: {
   rows: MovimentacaoRow[]
+  onView?: (row: MovimentacaoRow) => void
   onEdit?: (row: MovimentacaoRow) => void
   onDelete?: (row: MovimentacaoRow) => void
 }) => {
@@ -380,111 +418,37 @@ export const MovimentacoesTable = ({
             </Badge>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="150px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.materiaPrima}
-            >
+            <Box maxW="150px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.materiaPrima}>
               {r.materiaPrima}
             </Box>
           </Box>
-          <Box
-            as="td"
-            px={3}
-            py={3}
-            borderBottom="1px solid"
-            borderColor="gray.100"
-            fontSize="xs"
-            color="gray.700"
-            textAlign="right"
-          >
+          <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
             {formatInt(r.quantidade)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="110px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.fornecedor}
-            >
+            <Box maxW="110px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.fornecedor}>
               {r.fornecedor}
             </Box>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="130px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.responsavel}
-            >
+            <Box maxW="130px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.responsavel}>
               {r.responsavel}
             </Box>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700">
-            <Box
-              maxW="130px"
-              whiteSpace="nowrap"
-              overflow="hidden"
-              textOverflow="ellipsis"
-              title={r.destino}
-            >
+            <Box maxW="130px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={r.destino}>
               {r.destino || '-'}
             </Box>
           </Box>
-          <Box
-            as="td"
-            px={3}
-            py={3}
-            borderBottom="1px solid"
-            borderColor="gray.100"
-            fontSize="xs"
-            color="gray.700"
-            textAlign="right"
-          >
+          <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
             {formatBRL(r.valorTotal)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <Flex justify="center" gap={1}>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Ver movimentação"
-                onClick={() => undefined}
-              >
-                <EyeIcon size={16} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Editar movimentação"
-                onClick={onEdit ? () => onEdit(r) : undefined}
-                disabled={!onEdit}
-              >
-                <PencilIcon size={16} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                h="28px"
-                w="28px"
-                p={0}
-                aria-label="Excluir movimentação"
-                onClick={onDelete ? () => onDelete(r) : undefined}
-                disabled={!onDelete}
-              >
-                <TrashIcon size={16} />
-              </Button>
-            </Flex>
+            <RowActionsMovPopover
+              onView={onView ? () => onView(r) : undefined}
+              onEdit={onEdit ? () => onEdit(r) : undefined}
+              onDelete={onDelete ? () => onDelete(r) : undefined}
+            />
           </Box>
         </Box>
       ))}

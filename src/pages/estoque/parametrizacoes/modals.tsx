@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -14,11 +14,32 @@ import {
   HStack,
   Input,
   SimpleGrid,
+  Spinner,
   Stack,
   Text,
   Textarea,
 } from '@chakra-ui/react'
 import type { StatusAtivo } from './types'
+
+const ErrorAlert = ({ message }: { message: string }) => (
+  <Box
+    bg="red.50"
+    border="1px solid"
+    borderColor="red.300"
+    borderRadius="md"
+    px={4}
+    py={3}
+    mb={3}
+    display="flex"
+    alignItems="flex-start"
+    gap={2}
+  >
+    <Text color="red.500" fontWeight="bold" fontSize="md" lineHeight="1.4" flexShrink={0}>✕</Text>
+    <Text fontSize="sm" color="red.700" fontWeight="600" lineHeight="1.5">
+      {message}
+    </Text>
+  </Box>
+)
 
 const FieldLabel = ({ children }: { children: string }) => {
   return (
@@ -136,13 +157,29 @@ export const FornecedorUpsertDialog = ({
     observacoes: '',
   })
 
+  const initialValuesRef = useRef(initialValues)
+  initialValuesRef.current = initialValues
+
   useEffect(() => {
     if (!open) return
-    setValues((prev) => ({
-      ...prev,
-      ...initialValues,
-    }))
-  }, [initialValues, open])
+    setValues({
+      nome: '',
+      cnpj: '',
+      telefone: '',
+      email: '',
+      status: 'ATIVO',
+      prazoEntrega: '',
+      rua: '',
+      numero: '',
+      cep: '',
+      cidade: '',
+      estado: '',
+      condicoesPagamento: '',
+      observacoes: '',
+      ...initialValuesRef.current,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const canSubmit =
     values.nome.trim() &&
@@ -162,11 +199,7 @@ export const FornecedorUpsertDialog = ({
             <DialogTitle>{mode === 'create' ? 'Cadastrar Fornecedor' : 'Editar Fornecedor'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            {error ? (
-              <Text mb={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <ErrorAlert message={error} /> : null}
 
             <Stack gap={4}>
               <Stack gap={2}>
@@ -320,7 +353,12 @@ export const FornecedorUpsertDialog = ({
                 onClick={() => onSubmit(values)}
                 disabled={!canSubmit || Boolean(submitting)}
               >
-                {mode === 'create' ? 'Cadastrar' : 'Salvar'}
+                {submitting ? (
+                  <HStack gap={2}>
+                    <Spinner size="sm" />
+                    <span>Salvando...</span>
+                  </HStack>
+                ) : mode === 'create' ? 'Cadastrar' : 'Salvar'}
               </Button>
             </HStack>
           </DialogFooter>
@@ -354,10 +392,14 @@ export const LocalEstoqueUpsertDialog = ({
 }) => {
   const [values, setValues] = useState<LocalEstoqueFormValues>({ nome: '', descricao: '' })
 
+  const initialValuesRef = useRef(initialValues)
+  initialValuesRef.current = initialValues
+
   useEffect(() => {
     if (!open) return
-    setValues((prev) => ({ ...prev, ...initialValues }))
-  }, [initialValues, open])
+    setValues({ nome: '', descricao: '', ...initialValuesRef.current })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const canSubmit = values.nome.trim() && values.descricao.trim()
 
@@ -371,11 +413,7 @@ export const LocalEstoqueUpsertDialog = ({
             <DialogTitle>{mode === 'create' ? 'Adicionar Local de Estoque' : 'Editar Local de Estoque'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            {error ? (
-              <Text mb={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <ErrorAlert message={error} /> : null}
 
             <Stack gap={4}>
               <Stack gap={2}>
@@ -410,7 +448,12 @@ export const LocalEstoqueUpsertDialog = ({
                 onClick={() => onSubmit(values)}
                 disabled={!canSubmit || Boolean(submitting)}
               >
-                {mode === 'create' ? 'Adicionar' : 'Salvar'}
+                {submitting ? (
+                  <HStack gap={2}>
+                    <Spinner size="sm" />
+                    <span>Salvando...</span>
+                  </HStack>
+                ) : mode === 'create' ? 'Adicionar' : 'Salvar'}
               </Button>
             </HStack>
           </DialogFooter>
@@ -471,10 +514,25 @@ export const MateriaPrimaUpsertDialog = ({
     observacoes: '',
   })
 
+  const initialValuesRef = useRef(initialValues)
+  initialValuesRef.current = initialValues
+
   useEffect(() => {
     if (!open) return
-    setValues((prev) => ({ ...prev, ...initialValues }))
-  }, [initialValues, open])
+    setValues({
+      codigo: '',
+      descricao: '',
+      unidade: '',
+      categoria: '',
+      estoqueMinimo: '0',
+      fornecedorPrincipalId: '',
+      fornecedoresSecundarios: '',
+      localizacaoEstoque: '',
+      observacoes: '',
+      ...initialValuesRef.current,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const categoriaIdResolved = useMemo(() => {
     const nome = values.categoria.trim().toLowerCase()
@@ -527,11 +585,7 @@ export const MateriaPrimaUpsertDialog = ({
             <DialogTitle>{mode === 'create' ? 'Cadastrar Matéria-Prima' : 'Editar Matéria-Prima'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            {error ? (
-              <Text mb={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <ErrorAlert message={error} /> : null}
 
             <Stack gap={5}>
               <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
@@ -600,11 +654,12 @@ export const MateriaPrimaUpsertDialog = ({
                 </Stack>
 
                 <Stack gap={2}>
-                  <FieldLabel>Fornecedores Secundários *</FieldLabel>
-                  <Input
+                  <FieldLabel>Fornecedor Secundário</FieldLabel>
+                  <SelectField
                     value={values.fornecedoresSecundarios}
-                    onChange={(e) => setValues((s) => ({ ...s, fornecedoresSecundarios: e.target.value }))}
-                    bg="white"
+                    placeholder="Selecione o Fornecedor"
+                    options={fornecedoresOptions}
+                    onChange={(next) => setValues((s) => ({ ...s, fornecedoresSecundarios: next }))}
                   />
                 </Stack>
               </Stack>
@@ -646,7 +701,12 @@ export const MateriaPrimaUpsertDialog = ({
                 onClick={() => onSubmit(values, { categoriaId: categoriaIdResolved, fornecedorPrincipalId: fornecedorPrincipalIdResolved })}
                 disabled={!canSubmit || Boolean(submitting)}
               >
-                {mode === 'create' ? 'Cadastrar' : 'Salvar'}
+                {submitting ? (
+                  <HStack gap={2}>
+                    <Spinner size="sm" />
+                    <span>Salvando...</span>
+                  </HStack>
+                ) : mode === 'create' ? 'Cadastrar' : 'Salvar'}
               </Button>
             </HStack>
           </DialogFooter>
@@ -679,10 +739,14 @@ export const CategoriaUpsertDialog = ({
 }) => {
   const [values, setValues] = useState<CategoriaFormValues>({ nome: '' })
 
+  const initialValuesRef = useRef(initialValues)
+  initialValuesRef.current = initialValues
+
   useEffect(() => {
     if (!open) return
-    setValues({ nome: initialValues?.nome ?? '' })
-  }, [initialValues, open])
+    setValues({ nome: initialValuesRef.current?.nome ?? '' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const canSubmit = values.nome.trim().length > 0
 
@@ -696,11 +760,7 @@ export const CategoriaUpsertDialog = ({
             <DialogTitle>{mode === 'create' ? 'Cadastrar Categoria' : 'Editar Categoria'}</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            {error ? (
-              <Text mb={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <ErrorAlert message={error} /> : null}
 
             <Stack gap={4}>
               <Stack gap={2}>
@@ -726,7 +786,12 @@ export const CategoriaUpsertDialog = ({
                 onClick={() => onSubmit(values)}
                 disabled={!canSubmit || Boolean(submitting)}
               >
-                {mode === 'create' ? 'Cadastrar' : 'Salvar'}
+                {submitting ? (
+                  <HStack gap={2}>
+                    <Spinner size="sm" />
+                    <span>Salvando...</span>
+                  </HStack>
+                ) : mode === 'create' ? 'Cadastrar' : 'Salvar'}
               </Button>
             </HStack>
           </DialogFooter>
@@ -766,11 +831,7 @@ export const ConfirmDeleteDialog = ({
             <Text fontSize="sm" color="gray.700">
               {description}
             </Text>
-            {error ? (
-              <Text mt={3} fontSize="sm" color="red.500">
-                {error}
-              </Text>
-            ) : null}
+            {error ? <Box mt={3}><ErrorAlert message={error} /></Box> : null}
           </DialogBody>
           <DialogFooter>
             <HStack justify="flex-end" gap={3} w="full">

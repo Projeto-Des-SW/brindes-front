@@ -14,7 +14,6 @@ import type { CategoriaRow, FornecedorRow, LocalEstoqueRow, MateriaPrimaRow, Sta
 import { AppBreadcrumbs } from '../../../components/AppBreadcrumbs'
 import {
   CategoriaUpsertDialog,
-  ConfirmDeleteDialog,
   FornecedorUpsertDialog,
   LocalEstoqueUpsertDialog,
   MateriaPrimaUpsertDialog,
@@ -33,7 +32,7 @@ const createButtonLabel: Record<ParamTabKey, string> = {
 
 export const ParametrizacoesPage = () => {
   const { token } = useAuth()
-  const [tab, setTab] = useState<ParamTabKey>('locais')
+  const [tab, setTab] = useState<ParamTabKey>('materias-primas')
 
   const [search, setSearch] = useState('')
   const [statusFiltro, setStatusFiltro] = useState('')
@@ -49,7 +48,6 @@ export const ParametrizacoesPage = () => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [reloadKey, setReloadKey] = useState(0)
 
   // Dialogs
   const [fornecedorDialogOpen, setFornecedorDialogOpen] = useState(false)
@@ -79,18 +77,47 @@ export const ParametrizacoesPage = () => {
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false)
   const [categoriaError, setCategoriaError] = useState<string | null>(null)
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<
-    | { type: 'fornecedor'; row: FornecedorRow }
-    | { type: 'local'; row: LocalEstoqueRow }
-    | { type: 'materia'; row: MateriaPrimaRow }
-    | { type: 'categoria'; row: CategoriaRow }
-    | null
-  >(null)
-
   const onlyDigits = (s: string) => (s ?? '').replace(/\D/g, '')
+
+  const reloadAll = async (signal?: AbortSignal) => {
+    const [forns, mats, locs, cats] = await Promise.all([
+      fornecedorService.getFornecedores({ search: '', page: 1, pageSize: 50 }, token, signal),
+      materiaPrimaService.getMateriasPrimas({ search: '', page: 1, pageSize: 50 }, token, signal),
+      localEstoqueService.getLocaisEstoque({ search: '', page: 1, pageSize: 50 }, token, signal),
+      categoriaService.getCategorias(token, signal),
+    ])
+    setFornecedores(
+      (forns.items ?? []).map((f) => ({
+        id: f.id,
+        nome: f.nome,
+        cnpj: f.cnpj,
+        telefone: f.telefone,
+        email: f.email,
+        prazoEntrega: f.prazoEntrega,
+        status: (f.status === 'INATIVO' ? 'INATIVO' : 'ATIVO') as StatusAtivo,
+        condicoesPagamento: (f as any).condicoesPagamento ?? '',
+        observacoes: (f as any).observacoes ?? '',
+        endereco: (f as any).endereco ?? null,
+      }))
+    )
+    setMaterias(
+      (mats.items ?? []).map((mp) => ({
+        id: mp.id,
+        codigo: mp.codigo,
+        descricao: mp.descricao,
+        unidade: mp.unidade,
+        categoria: mp.categoria,
+        fornecedorPrincipal: mp.fornecedorPrincipal,
+        fornecedorSecundarioId: (mp as any).fornecedorSecundarioId ?? null,
+        localEstoqueId: (mp as any).localEstoqueId ?? null,
+        estoqueAtual: Number(mp.estoqueAtual ?? 0),
+        estoqueMinimo: Number(mp.estoqueMinimo ?? 0),
+      }))
+    )
+    setLocais((locs.items ?? []).map((l) => ({ id: l.id, nome: l.nome, descricao: l.descricao })))
+    setCategoriasRows(cats.map((c) => ({ id: c.id, nome: c.nome })))
+    setCategorias(cats)
+  }
 
   const categoriaOptions = useMemo(() => {
     return categorias.map((c) => ({ label: c.nome, value: c.nome }))
@@ -153,6 +180,8 @@ export const ParametrizacoesPage = () => {
               unidade: mp.unidade,
               categoria: mp.categoria,
               fornecedorPrincipal: mp.fornecedorPrincipal,
+              fornecedorSecundarioId: (mp as any).fornecedorSecundarioId ?? null,
+              localEstoqueId: (mp as any).localEstoqueId ?? null,
               estoqueAtual: Number(mp.estoqueAtual ?? 0),
               estoqueMinimo: Number(mp.estoqueMinimo ?? 0),
             }))
@@ -192,7 +221,7 @@ export const ParametrizacoesPage = () => {
       controller.abort()
       window.clearTimeout(handle)
     }
-  }, [categoriaFiltro, reloadKey, search, statusFiltro, tab, token])
+  }, [categoriaFiltro, search, statusFiltro, tab, token])
 
   useEffect(() => {
     if (!materiaDialogOpen) return
@@ -248,6 +277,18 @@ export const ParametrizacoesPage = () => {
     return <SearchInput value={search} placeholder="Buscar" onChange={setSearch} minW="220px" />
   }
 
+  const handleToggle = async (type: 'fornecedor' | 'materia' | 'local' | 'categoria', id: number) => {
+    try {
+      if (type === 'fornecedor') await fornecedorService.toggleStatus(id, token)
+      else if (type === 'materia') await materiaPrimaService.toggleStatus(id, token)
+      else if (type === 'local') await localEstoqueService.toggleStatus(id, token)
+      else await categoriaService.toggleStatus(id, token)
+      await reloadAll()
+    } catch {
+      // ignore
+    }
+  }
+
   const renderTabela = () => {
     if (tab === 'fornecedores') {
       return (
@@ -259,11 +300,7 @@ export const ParametrizacoesPage = () => {
             setFornecedorError(null)
             setFornecedorDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'fornecedor', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('fornecedor', row.id)}
         />
       )
     }
@@ -277,11 +314,7 @@ export const ParametrizacoesPage = () => {
             setMateriaError(null)
             setMateriaDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'materia', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('materia', row.id)}
         />
       )
     }
@@ -295,11 +328,7 @@ export const ParametrizacoesPage = () => {
             setLocalError(null)
             setLocalDialogOpen(true)
           }}
-          onDelete={(row) => {
-            setDeleteTarget({ type: 'local', row })
-            setDeleteError(null)
-            setDeleteDialogOpen(true)
-          }}
+          onToggle={(row) => handleToggle('local', row.id)}
         />
       )
     }
@@ -312,11 +341,7 @@ export const ParametrizacoesPage = () => {
           setCategoriaError(null)
           setCategoriaDialogOpen(true)
         }}
-        onDelete={(row) => {
-          setDeleteTarget({ type: 'categoria', row })
-          setDeleteError(null)
-          setDeleteDialogOpen(true)
-        }}
+        onToggle={(row) => handleToggle('categoria', row.id)}
       />
     )
   }
@@ -421,7 +446,7 @@ export const ParametrizacoesPage = () => {
               : { status: 'ATIVO' }
           }
           onClose={() => setFornecedorDialogOpen(false)}
-          onSubmit={(values: FornecedorFormValues) => {
+          onSubmit={async (values: FornecedorFormValues) => {
             setFornecedorSubmitting(true)
             setFornecedorError(null)
 
@@ -448,13 +473,15 @@ export const ParametrizacoesPage = () => {
                 ? fornecedorService.createFornecedor(payload, token)
                 : fornecedorService.updateFornecedor(fornecedorEditing?.id ?? 0, payload, token)
 
-            run
-              .then(() => {
-                setFornecedorDialogOpen(false)
-                setReloadKey((k) => k + 1)
-              })
-              .catch((e) => setFornecedorError(e instanceof Error ? e.message : 'Erro ao salvar fornecedor'))
-              .finally(() => setFornecedorSubmitting(false))
+            try {
+              await run
+              await reloadAll()
+              setFornecedorDialogOpen(false)
+            } catch (e) {
+              setFornecedorError(e instanceof Error ? e.message : 'Erro ao salvar fornecedor')
+            } finally {
+              setFornecedorSubmitting(false)
+            }
           }}
         />
 
@@ -465,7 +492,7 @@ export const ParametrizacoesPage = () => {
           error={localError}
           initialValues={localEditing ? { nome: localEditing.nome, descricao: localEditing.descricao } : undefined}
           onClose={() => setLocalDialogOpen(false)}
-          onSubmit={(values: LocalEstoqueFormValues) => {
+          onSubmit={async (values: LocalEstoqueFormValues) => {
             setLocalSubmitting(true)
             setLocalError(null)
 
@@ -475,13 +502,15 @@ export const ParametrizacoesPage = () => {
                 ? localEstoqueService.createLocalEstoque(payload, token)
                 : localEstoqueService.updateLocalEstoque(localEditing?.id ?? 0, payload, token)
 
-            run
-              .then(() => {
-                setLocalDialogOpen(false)
-                setReloadKey((k) => k + 1)
-              })
-              .catch((e) => setLocalError(e instanceof Error ? e.message : 'Erro ao salvar local de estoque'))
-              .finally(() => setLocalSubmitting(false))
+            try {
+              await run
+              await reloadAll()
+              setLocalDialogOpen(false)
+            } catch (e) {
+              setLocalError(e instanceof Error ? e.message : 'Erro ao salvar local de estoque')
+            } finally {
+              setLocalSubmitting(false)
+            }
           }}
         />
 
@@ -505,11 +534,17 @@ export const ParametrizacoesPage = () => {
                   fornecedorPrincipalId: fornecedoresAtivos.find((f) => f.nome === materiaEditing.fornecedorPrincipal)?.id
                     ? String(fornecedoresAtivos.find((f) => f.nome === materiaEditing.fornecedorPrincipal)?.id)
                     : '',
+                  fornecedoresSecundarios: materiaEditing.fornecedorSecundarioId
+                    ? String(materiaEditing.fornecedorSecundarioId)
+                    : '',
+                  localizacaoEstoque: materiaEditing.localEstoqueId
+                    ? String(materiaEditing.localEstoqueId)
+                    : '',
                 }
               : { estoqueMinimo: '0' }
           }
           onClose={() => setMateriaDialogOpen(false)}
-          onSubmit={(values: MateriaPrimaFormValues, resolved) => {
+          onSubmit={async (values: MateriaPrimaFormValues, resolved) => {
             setMateriaSubmitting(true)
             setMateriaError(null)
 
@@ -521,6 +556,8 @@ export const ParametrizacoesPage = () => {
               categoria: values.categoria,
               categoriaId: resolved.categoriaId,
               fornecedorPrincipalId: resolved.fornecedorPrincipalId,
+              fornecedorSecundarioId: values.fornecedoresSecundarios ? Number(values.fornecedoresSecundarios) : null,
+              localEstoqueId: values.localizacaoEstoque ? Number(values.localizacaoEstoque) : null,
               estoqueMinimo: Number.isFinite(estoqueMinimo) ? estoqueMinimo : 0,
             }
 
@@ -529,13 +566,15 @@ export const ParametrizacoesPage = () => {
                 ? materiaPrimaService.createMateriaPrima(payload, token)
                 : materiaPrimaService.updateMateriaPrima(materiaEditing?.id ?? 0, payload, token)
 
-            run
-              .then(() => {
-                setMateriaDialogOpen(false)
-                setReloadKey((k) => k + 1)
-              })
-              .catch((e) => setMateriaError(e instanceof Error ? e.message : 'Erro ao salvar matéria-prima'))
-              .finally(() => setMateriaSubmitting(false))
+            try {
+              await run
+              await reloadAll()
+              setMateriaDialogOpen(false)
+            } catch (e) {
+              setMateriaError(e instanceof Error ? e.message : 'Erro ao salvar matéria-prima')
+            } finally {
+              setMateriaSubmitting(false)
+            }
           }}
         />
 
@@ -546,7 +585,7 @@ export const ParametrizacoesPage = () => {
           error={categoriaError}
           initialValues={categoriaEditing ? { nome: categoriaEditing.nome } : undefined}
           onClose={() => setCategoriaDialogOpen(false)}
-          onSubmit={(values: CategoriaFormValues) => {
+          onSubmit={async (values: CategoriaFormValues) => {
             setCategoriaSubmitting(true)
             setCategoriaError(null)
 
@@ -555,68 +594,18 @@ export const ParametrizacoesPage = () => {
                 ? categoriaService.createCategoria({ nome: values.nome }, token)
                 : categoriaService.updateCategoria(categoriaEditing?.id ?? 0, { nome: values.nome }, token)
 
-            run
-              .then(() => {
-                setCategoriaDialogOpen(false)
-                setReloadKey((k) => k + 1)
-              })
-              .catch((e) => setCategoriaError(e instanceof Error ? e.message : 'Erro ao salvar categoria'))
-              .finally(() => setCategoriaSubmitting(false))
+            try {
+              await run
+              await reloadAll()
+              setCategoriaDialogOpen(false)
+            } catch (e) {
+              setCategoriaError(e instanceof Error ? e.message : 'Erro ao salvar categoria')
+            } finally {
+              setCategoriaSubmitting(false)
+            }
           }}
         />
 
-        <ConfirmDeleteDialog
-          open={deleteDialogOpen}
-          submitting={deleteSubmitting}
-          error={deleteError}
-          title={
-            deleteTarget?.type === 'fornecedor'
-              ? 'Excluir fornecedor'
-              : deleteTarget?.type === 'local'
-                ? 'Excluir local de estoque'
-                : deleteTarget?.type === 'categoria'
-                  ? 'Excluir categoria'
-                  : 'Excluir matéria-prima'
-          }
-          description={
-            deleteTarget?.type === 'fornecedor'
-              ? `Tem certeza que deseja excluir o fornecedor "${deleteTarget.row.nome}"?`
-              : deleteTarget?.type === 'local'
-                ? `Tem certeza que deseja excluir o local "${deleteTarget.row.nome}"?`
-                : deleteTarget?.type === 'categoria'
-                  ? `Tem certeza que deseja excluir a categoria "${deleteTarget.row.nome}"?`
-                  : deleteTarget
-                    ? `Tem certeza que deseja excluir a matéria-prima "${(deleteTarget.row as MateriaPrimaRow).descricao}"?`
-                    : ''
-          }
-          onClose={() => {
-            setDeleteDialogOpen(false)
-            setDeleteTarget(null)
-          }}
-          onConfirm={() => {
-            if (!deleteTarget) return
-            setDeleteSubmitting(true)
-            setDeleteError(null)
-
-            const run =
-              deleteTarget.type === 'fornecedor'
-                ? fornecedorService.deleteFornecedor(deleteTarget.row.id, token)
-                : deleteTarget.type === 'local'
-                  ? localEstoqueService.deleteLocalEstoque(deleteTarget.row.id, token)
-                  : deleteTarget.type === 'categoria'
-                    ? categoriaService.deleteCategoria(deleteTarget.row.id, token)
-                    : materiaPrimaService.deleteMateriaPrima(deleteTarget.row.id, token)
-
-            run
-              .then(() => {
-                setDeleteDialogOpen(false)
-                setDeleteTarget(null)
-                setReloadKey((k) => k + 1)
-              })
-              .catch((e) => setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir'))
-              .finally(() => setDeleteSubmitting(false))
-          }}
-        />
       </Container>
     </Box>
   )

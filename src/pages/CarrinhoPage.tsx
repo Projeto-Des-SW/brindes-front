@@ -96,10 +96,10 @@ export const CarrinhoPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   return (
-    <Box minH="100vh" bg="white">
+    <Box minH="100vh" bg="white" display="flex" flexDirection="column">
       <HomeNavbar />
 
-      <Container maxW="7xl" py={8}>
+      <Container maxW="7xl" py={8} flex="1">
         {/* Breadcrumb voltar */}
         <HStack
           mb={6}

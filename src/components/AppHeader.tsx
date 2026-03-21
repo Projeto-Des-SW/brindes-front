@@ -4,7 +4,7 @@ import { Box, Button, Flex, HStack, Image, Text, VStack } from '@chakra-ui/react
 import logo from '../assets/logo-bahia-brindes.svg'
 import { APP_MODULES, moduleFromPathname } from '../config/modules'
 import { useAuth } from '../context/useAuth'
-import { CheckIcon, ChevronDownIcon, GearIcon, ProfileIcon, UserCircleIcon } from './icons'
+import { CheckIcon, ChevronDownIcon, ProfileIcon } from './icons'
 import { useOutsideDismiss } from './useOutsideDismiss'
 
 const headerShadow = '0px 2px 6px rgba(0, 0, 0, 0.25)'
@@ -145,20 +145,21 @@ export const AppHeader = () => {
           <Box position="relative" ref={userRef}>
             <Button
               aria-label="Menu do usuário"
-              bg="white"
-              border="2px solid"
-              borderColor="gray.900"
+              bg="gray.900"
               borderRadius="full"
-              w="44px"
-              h="44px"
+              w="40px"
+              h="40px"
               p={0}
-              minW="44px"
+              minW="40px"
               onClick={() => {
                 setIsUserOpen((v) => !v)
                 setIsModuleOpen(false)
               }}
             >
-              <UserCircleIcon size={28} color="gray.900" />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="8" r="4" fill="white" />
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="white" />
+              </svg>
             </Button>
             {isUserOpen && (
               <Box
@@ -199,24 +200,6 @@ export const AppHeader = () => {
                     <HStack gap={2}>
                       <ProfileIcon color="gray.700" />
                       <Text>Meu perfil</Text>
-                    </HStack>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    justifyContent="flex-start"
-                    borderRadius="0"
-                    h="36px"
-                    px={4}
-                    fontSize="sm"
-                    fontWeight="400"
-                    onClick={() => {
-                      setIsUserOpen(false)
-                      go('/configuracoes')
-                    }}
-                  >
-                    <HStack gap={2}>
-                      <GearIcon color="gray.700" />
-                      <Text>Configurações</Text>
                     </HStack>
                   </Button>
                 </VStack>

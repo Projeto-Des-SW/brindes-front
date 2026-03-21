@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Button,
@@ -17,6 +17,7 @@ import {
   Heading,
   Input,
   SimpleGrid,
+  Spinner,
   Stack,
   Text,
   VStack,
@@ -41,10 +42,12 @@ import { produtoService, type ProdutoResponse } from '../services/produtoService
 // Mapeamento de status do back-end para rótulos legíveis
 const STATUS_LABEL: Record<string, string> = {
   ORCAMENTO_SOLICITADO: 'ORÇAMENTO SOLICITADO',
-  ARTE_PENDENTE: 'ARTES COM APROVAÇÃO PENDENTE',
-  EM_PRODUCAO: 'EM PRODUÇÃO',
-  CONCLUIDO: 'CONCLUÍDO',
-  CANCELADO: 'CANCELADO',
+  PAGAMENTO_APROVADO:   'PAGAMENTO APROVADO',
+  ARTE_PENDENTE:        'ARTES COM APROVAÇÃO PENDENTE',
+  ARTES_APROVADAS:      'ARTES APROVADAS',
+  EM_PRODUCAO:          'EM PRODUÇÃO',
+  CONCLUIDO:            'CONCLUÍDO',
+  CANCELADO:            'CANCELADO',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -53,20 +56,24 @@ const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const statusScheme: Record<string, { bg: string; color: string }> = {
-  CONCLUIDO:             { bg: '#d1fae5', color: '#065f46' },
-  ARTE_PENDENTE:         { bg: '#fef3c7', color: '#92400e' },
   ORCAMENTO_SOLICITADO:  { bg: '#ffedd5', color: '#9a3412' },
-  EM_PRODUCAO:           { bg: '#dbeafe', color: '#1e40af' },
+  PAGAMENTO_APROVADO:    { bg: '#dbeafe', color: '#1e40af' },
+  ARTE_PENDENTE:         { bg: '#fef3c7', color: '#92400e' },
+  ARTES_APROVADAS:       { bg: '#d1fae5', color: '#065f46' },
+  EM_PRODUCAO:           { bg: '#ede9fe', color: '#5b21b6' },
+  CONCLUIDO:             { bg: '#d1fae5', color: '#065f46' },
   CANCELADO:             { bg: '#fee2e2', color: '#991b1b' },
 }
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
-  { label: 'Todos os status', value: '' },
-  { label: 'Orçamento Solicitado', value: 'ORCAMENTO_SOLICITADO' },
+  { label: 'Todos os status',              value: '' },
+  { label: 'Orçamento Solicitado',         value: 'ORCAMENTO_SOLICITADO' },
+  { label: 'Pagamento Aprovado',           value: 'PAGAMENTO_APROVADO' },
   { label: 'Artes com Aprovação Pendente', value: 'ARTE_PENDENTE' },
-  { label: 'Em Produção', value: 'EM_PRODUCAO' },
-  { label: 'Concluído', value: 'CONCLUIDO' },
-  { label: 'Cancelado', value: 'CANCELADO' },
+  { label: 'Artes Aprovadas',              value: 'ARTES_APROVADAS' },
+  { label: 'Em Produção',                  value: 'EM_PRODUCAO' },
+  { label: 'Concluído',                    value: 'CONCLUIDO' },
+  { label: 'Cancelado',                    value: 'CANCELADO' },
 ]
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
@@ -135,7 +142,6 @@ const STATUS_FLOW = [
 
 const STATUS_FLOW_ORDER = STATUS_FLOW.map((s) => s.key)
 
-const METODOS_PAGAMENTO = ['PIX', 'BOLETO', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'TRANSFERENCIA']
 const METODO_LABEL: Record<string, string> = {
   PIX: 'PIX',
   BOLETO: 'Boleto',
@@ -146,45 +152,53 @@ const METODO_LABEL: Record<string, string> = {
 
 // ─── Sub-componente: Fluxo de Status ─────────────────────────────────────────
 
-const FluxoStatus = ({ currentStatus }: { currentStatus: string }) => {
+const FluxoStatus = ({
+  currentStatus,
+  onSelect,
+  disabled,
+}: {
+  currentStatus: string
+  onSelect?: (status: string) => void
+  disabled?: boolean
+}) => {
   const currentIdx = STATUS_FLOW_ORDER.indexOf(currentStatus)
   return (
-    <Box overflowX="auto" pb={1}>
-      <HStack gap={0} minW="max-content">
-        {STATUS_FLOW.map((step, idx) => {
-          const isPast    = idx < currentIdx
-          const isCurrent = idx === currentIdx
-          return (
-            <HStack key={step.key} gap={0}>
-              <Box
-                px={3}
-                py="6px"
-                borderRadius="full"
-                fontSize="11px"
-                fontWeight={isCurrent ? '700' : '500'}
-                whiteSpace="nowrap"
-                border="1px solid"
-                borderColor={isCurrent ? '#f59e0b' : isPast ? 'gray.300' : 'gray.200'}
-                bg={isCurrent ? '#fef3c7' : isPast ? 'gray.100' : 'white'}
-                color={isCurrent ? '#92400e' : isPast ? 'gray.500' : 'gray.400'}
-              >
-                {step.label}
-              </Box>
-              {idx < STATUS_FLOW.length - 1 && (
-                <Box color={isPast ? 'gray.400' : 'gray.200'} mx={1} fontSize="xs">›</Box>
-              )}
-            </HStack>
-          )
-        })}
-      </HStack>
-    </Box>
+    <Flex gap={1} flexWrap="wrap">
+      {STATUS_FLOW.map((step, idx) => {
+        const isPast    = idx < currentIdx
+        const isCurrent = idx === currentIdx
+        const isClickable = !isCurrent && !disabled && !!onSelect
+        return (
+          <Box
+            key={step.key}
+            as={isClickable ? 'button' : 'span'}
+            px={3}
+            py="6px"
+            borderRadius="full"
+            fontSize="11px"
+            fontWeight={isCurrent ? '700' : '500'}
+            whiteSpace="nowrap"
+            border="1px solid"
+            borderColor={isCurrent ? '#f59e0b' : isPast ? 'gray.300' : 'gray.200'}
+            bg={isCurrent ? '#fef3c7' : isPast ? 'gray.100' : 'white'}
+            color={isCurrent ? '#92400e' : isPast ? 'gray.500' : 'gray.400'}
+            cursor={isClickable ? 'pointer' : 'default'}
+            opacity={disabled && !isCurrent ? 0.5 : 1}
+            _hover={isClickable ? { bg: isPast ? 'gray.200' : 'gray.50', borderColor: 'gray.400' } : undefined}
+            onClick={isClickable ? () => onSelect!(step.key) : undefined}
+          >
+            {step.label}
+          </Box>
+        )
+      })}
+    </Flex>
   )
 }
 
 // ─── Sub-componente: Seção com borda ─────────────────────────────────────────
 
 const Section = ({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) => (
-  <Box>
+  <Box display="flex" flexDirection="column" h="full">
     <Flex align="center" justify="space-between" mb={3}>
       <Text fontSize="sm" fontWeight="700" color="gray.900">{title}</Text>
       {action}
@@ -194,14 +208,14 @@ const Section = ({ title, action, children }: { title: string; action?: React.Re
 )
 
 const InfoCard = ({ children }: { children: React.ReactNode }) => (
-  <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="lg" p={4}>
+  <Box bg="white" border="1px solid" borderColor="gray.200" borderRadius="lg" p={4} flex="1">
     {children}
   </Box>
 )
 
 const InfoRow = ({ label, value, valueColor }: { label: string; value: React.ReactNode; valueColor?: string }) => (
-  <Box mb={3} _last={{ mb: 0 }}>
-    <Text fontSize="xs" color="gray.400" mb="2px">{label}</Text>
+  <Box mb={2} _last={{ mb: 0 }}>
+    <Text fontSize="11px" color="gray.400" mb="1px">{label}</Text>
     <Text fontSize="sm" fontWeight="600" color={valueColor ?? 'gray.900'}>{value}</Text>
   </Box>
 )
@@ -213,10 +227,11 @@ interface DetalheVendaModalProps {
   onClose: () => void
   vendaId: number | null
   token: string | null
+  userName: string
   onVendaAtualizada?: () => void
 }
 
-const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada }: DetalheVendaModalProps) => {
+const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, userName, onVendaAtualizada }: DetalheVendaModalProps) => {
   const [detalhe, setDetalhe] = useState<OrcamentoDetalheResponseDTO | null>(null)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -229,6 +244,30 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
 
   // Atualização de status
   const [atualizandoStatus, setAtualizandoStatus] = useState(false)
+
+  // Upload / Download de arte
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadForProduto = useRef<string>('')
+  const [uploadingArte, setUploadingArte] = useState(false)
+  const [downloadingArteId, setDownloadingArteId] = useState<number | null>(null)
+  const [erroArte, setErroArte] = useState<string | null>(null)
+
+  // Status de arte (admin)
+  const [atualizandoArteId, setAtualizandoArteId] = useState<number | null>(null)
+
+  // Comentários
+  const [comentarioTexto, setComentarioTexto] = useState<Record<string, string>>({}) // key: produtoNome ou 'geral'
+  const [enviandoComentario, setEnviandoComentario] = useState<string | null>(null) // key sendo enviada
+
+  // Desconto por item
+  const [editandoDescontoItemId, setEditandoDescontoItemId] = useState<number | null>(null)
+  const [editDescontoValor, setEditDescontoValor] = useState('')
+  const [salvandoDesconto, setSalvandoDesconto] = useState(false)
+
+  // Notificação
+  const [notificando, setNotificando] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifMsg, setNotifMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen || vendaId == null) return
@@ -275,13 +314,107 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
     if (!vendaId) return
     setAtualizandoStatus(true)
     orcamentoService
-      .atualizarStatus(token, vendaId, novoStatus)
+      .atualizarStatus(token, vendaId, novoStatus, userName)
       .then((d) => {
         setDetalhe(d)
         onVendaAtualizada?.()
       })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao atualizar status'))
       .finally(() => setAtualizandoStatus(false))
+  }
+
+  const handleArteClick = (produtoNome: string) => {
+    uploadForProduto.current = produtoNome
+    fileInputRef.current?.click()
+  }
+
+  const handleDownloadArte = async (arteId: number) => {
+    setDownloadingArteId(arteId)
+    try {
+      await orcamentoService.downloadArte(token, arteId)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao baixar arte')
+    } finally {
+      setDownloadingArteId(null)
+    }
+  }
+
+  const handleArteFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !vendaId) return
+    e.target.value = ''
+    setUploadingArte(true)
+    setErroArte(null)
+    try {
+      await orcamentoService.uploadArte(token, vendaId, uploadForProduto.current, file)
+      const updated = await orcamentoService.obterDetalheAdmin(token, vendaId)
+      setDetalhe(updated)
+    } catch (err) {
+      setErroArte(err instanceof Error ? err.message : 'Erro ao enviar arte')
+    } finally {
+      setUploadingArte(false)
+    }
+  }
+
+  const handleNotificar = async (tipo: 'status' | 'arte') => {
+    if (!vendaId) return
+    setNotifOpen(false)
+    setNotificando(true)
+    setNotifMsg(null)
+    try {
+      await orcamentoService.notificar(token, vendaId, tipo)
+      setNotifMsg(tipo === 'status' ? 'Cliente notificado sobre o status.' : 'Cliente notificado sobre a arte.')
+      setTimeout(() => setNotifMsg(null), 4000)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao notificar')
+    } finally {
+      setNotificando(false)
+    }
+  }
+
+  const handleAvaliarArteAdmin = async (arteId: number, novoStatus: string) => {
+    if (!vendaId) return
+    setAtualizandoArteId(arteId)
+    try {
+      const updated = await orcamentoService.avaliarArteAdmin(token, vendaId, arteId, novoStatus)
+      setDetalhe(updated)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao atualizar arte')
+    } finally {
+      setAtualizandoArteId(null)
+    }
+  }
+
+  const handleEnviarComentario = async (key: string, produtoNome?: string) => {
+    const mensagem = comentarioTexto[key]?.trim()
+    if (!mensagem || !vendaId) return
+    setEnviandoComentario(key)
+    try {
+      const updated = await orcamentoService.adicionarComentario(token, vendaId, mensagem, produtoNome)
+      setDetalhe(updated)
+      setComentarioTexto((prev) => ({ ...prev, [key]: '' }))
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao enviar comentário')
+    } finally {
+      setEnviandoComentario(null)
+    }
+  }
+
+  const handleSalvarDesconto = async (itemId: number) => {
+    if (!vendaId) return
+    const valor = parseFloat(editDescontoValor.replace(',', '.'))
+    if (isNaN(valor) || valor < 0) return
+    setSalvandoDesconto(true)
+    try {
+      const updated = await orcamentoService.atualizarDescontoItem(token, vendaId, itemId, valor)
+      setDetalhe(updated)
+      setEditandoDescontoItemId(null)
+      setEditDescontoValor('')
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar desconto')
+    } finally {
+      setSalvandoDesconto(false)
+    }
   }
 
   const valorRestante = detalhe
@@ -295,7 +428,16 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
     >
       <DialogBackdrop />
       <DialogPositioner>
-        <DialogContent borderRadius="lg" maxW="700px" maxH="90vh" overflow="hidden" display="flex" flexDirection="column">
+        <DialogContent borderRadius="lg" maxW="850px" maxH="90vh" overflow="hidden" display="flex" flexDirection="column">
+          {/* Input oculto para upload de arte */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            style={{ display: 'none' }}
+            onChange={handleArteFileSelected}
+          />
+
           <DialogCloseTrigger />
           <DialogHeader borderBottom="1px solid" borderColor="gray.100" pb={3}>
             <Box>
@@ -308,6 +450,23 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                 </Text>
               )}
             </Box>
+
+            {/* Feedback de notificação / arte */}
+            {notifMsg && (
+              <Box mt={2} px={3} py={2} bg="green.50" borderRadius="md" border="1px solid" borderColor="green.200">
+                <Text fontSize="xs" color="green.700" fontWeight="600">{notifMsg}</Text>
+              </Box>
+            )}
+            {erroArte && (
+              <Box mt={2} px={3} py={2} bg="red.50" borderRadius="md" border="1px solid" borderColor="red.200">
+                <Text fontSize="xs" color="red.700">{erroArte}</Text>
+              </Box>
+            )}
+            {uploadingArte && (
+              <Box mt={2} px={3} py={2} bg="blue.50" borderRadius="md" border="1px solid" borderColor="blue.200">
+                <Text fontSize="xs" color="blue.700">Enviando arte...</Text>
+              </Box>
+            )}
           </DialogHeader>
 
           <DialogBody overflowY="auto" py={5} flex="1">
@@ -324,29 +483,15 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
 
                 {/* ── Fluxo de Status ── */}
                 <Section title="Fluxo de Status">
-                  <FluxoStatus currentStatus={detalhe.status} />
-                  {/* Seletor rápido de novo status */}
-                  <HStack mt={3} gap={2} flexWrap="wrap">
-                    {STATUS_FLOW.filter((s) => s.key !== detalhe.status).map((s) => (
-                      <Button
-                        key={s.key}
-                        size="xs"
-                        variant="outline"
-                        h="26px"
-                        fontSize="11px"
-                        px={3}
-                        disabled={atualizandoStatus}
-                        onClick={() => handleAtualizarStatus(s.key)}
-                        _hover={{ bg: 'gray.100' }}
-                      >
-                        → {s.label}
-                      </Button>
-                    ))}
-                  </HStack>
+                  <FluxoStatus
+                    currentStatus={detalhe.status}
+                    onSelect={handleAtualizarStatus}
+                    disabled={atualizandoStatus}
+                  />
                 </Section>
 
                 {/* ── Informações do Cliente + Pagamento ── */}
-                <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+                <SimpleGrid columns={{ base: 1, md: 2 }} gap={4} alignItems="stretch">
                   <Section title="Informações do Cliente">
                     <InfoCard>
                       <InfoRow label="Nome" value={detalhe.nomeCliente ?? '—'} />
@@ -379,20 +524,12 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                         <Stack gap={3}>
                           <Box>
                             <Text fontSize="xs" color="gray.400" mb={1}>Método de Pagamento</Text>
-                            <select
+                            <ComboBox
                               value={editMetodo}
-                              onChange={(e) => setEditMetodo(e.target.value)}
-                              style={{
-                                width: '100%', height: '32px', padding: '0 8px',
-                                border: '1px solid #E2E8F0', borderRadius: '6px',
-                                fontSize: '13px', background: 'white',
-                              }}
-                            >
-                              <option value="">Selecione</option>
-                              {METODOS_PAGAMENTO.map((m) => (
-                                <option key={m} value={m}>{METODO_LABEL[m]}</option>
-                              ))}
-                            </select>
+                              onChange={setEditMetodo}
+                              placeholder="PIX, Boleto, ou outro..."
+                              options={['PIX', 'Boleto', 'Cartão de Crédito', 'Cartão de Débito', 'Transferência', 'Dinheiro']}
+                            />
                           </Box>
                           <Box>
                             <Text fontSize="xs" color="gray.400" mb={1}>Valor Pago (R$)</Text>
@@ -406,14 +543,15 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                             />
                           </Box>
                           <HStack justify="flex-end" gap={2}>
-                            <Button size="xs" variant="outline" h="26px" onClick={() => setEditandoPagamento(false)}>
+                            <Button size="xs" variant="outline" h="28px" fontSize="12px" onClick={() => setEditandoPagamento(false)}>
                               Cancelar
                             </Button>
                             <Button
                               size="xs"
                               bg="gray.900"
                               color="white"
-                              h="26px"
+                              h="28px"
+                              fontSize="12px"
                               _hover={{ bg: 'gray.800' }}
                               disabled={salvandoPagamento}
                               onClick={handleSalvarPagamento}
@@ -423,159 +561,398 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
                           </HStack>
                         </Stack>
                       ) : (
-                        <>
-                          <InfoRow
-                            label="Método de Pagamento"
-                            value={detalhe.metodoPagamento ? (METODO_LABEL[detalhe.metodoPagamento] ?? detalhe.metodoPagamento) : '—'}
-                          />
-                          <InfoRow label="Valor Total" value={formatBRL(detalhe.valorTotal ?? 0)} />
-                          <InfoRow
-                            label="Valor Pago"
-                            value={formatBRL(detalhe.valorPago ?? 0)}
-                            valueColor="green.600"
-                          />
-                          <InfoRow
-                            label="Valor Restante"
-                            value={formatBRL(valorRestante)}
-                            valueColor={valorRestante > 0 ? 'red.500' : 'green.600'}
-                          />
-                        </>
+                        <Stack gap={0}>
+                          {/* Método */}
+                          <Flex align="center" gap={2} mb={3}>
+                            <Box
+                              px={2} py="3px" borderRadius="md" fontSize="11px" fontWeight="700"
+                              bg="gray.100" color="gray.600" whiteSpace="nowrap"
+                            >
+                              {detalhe.metodoPagamento
+                                ? (METODO_LABEL[detalhe.metodoPagamento] ?? detalhe.metodoPagamento)
+                                : '—'}
+                            </Box>
+                          </Flex>
+
+                          {/* Breakdown de valores */}
+                          <Stack gap={0} borderTop="1px solid" borderColor="gray.100" pt={3}>
+                            <Flex justify="space-between" mb={2}>
+                              <Text fontSize="xs" color="gray.400">Subtotal</Text>
+                              <Text fontSize="xs" color="gray.600">{formatBRL(detalhe.subtotal ?? 0)}</Text>
+                            </Flex>
+                            {(detalhe.descontoTotal ?? 0) > 0 && (
+                              <Flex justify="space-between" mb={2}>
+                                <Text fontSize="xs" color="orange.500">Desconto</Text>
+                                <Text fontSize="xs" color="orange.500" fontWeight="600">− {formatBRL(detalhe.descontoTotal ?? 0)}</Text>
+                              </Flex>
+                            )}
+                            <Flex justify="space-between" borderTop="1px dashed" borderColor="gray.200" pt={2} mt={1}>
+                              <Text fontSize="xs" fontWeight="700" color="gray.800">Total</Text>
+                              <Text fontSize="sm" fontWeight="800" color="gray.900">{formatBRL(detalhe.valorTotal ?? 0)}</Text>
+                            </Flex>
+                          </Stack>
+
+                          {/* Pago / Restante */}
+                          <Stack gap={0} borderTop="1px solid" borderColor="gray.100" pt={3} mt={3}>
+                            <Flex justify="space-between" mb={2}>
+                              <Text fontSize="xs" color="gray.400">Valor Pago</Text>
+                              <Text fontSize="xs" fontWeight="600" color="green.600">{formatBRL(detalhe.valorPago ?? 0)}</Text>
+                            </Flex>
+                            <Flex justify="space-between">
+                              <Text fontSize="xs" color="gray.400">Restante</Text>
+                              <Text
+                                fontSize="xs" fontWeight="700"
+                                color={valorRestante > 0 ? 'red.500' : 'green.600'}
+                              >
+                                {formatBRL(valorRestante)}
+                              </Text>
+                            </Flex>
+                          </Stack>
+                        </Stack>
                       )}
                     </InfoCard>
                   </Section>
                 </SimpleGrid>
 
-                {/* ── Produtos e Artes ── */}
-                <Section title="Produtos e Artes">
-                  <Stack gap={3}>
-                    {detalhe.produtos.map((prod) => {
-                      const arte = detalhe.artes.find((a) => a.produtoNome === prod.nome)
-                      return (
-                        <Box
-                          key={prod.id}
-                          border="1px solid"
-                          borderColor="gray.200"
-                          borderRadius="lg"
-                          overflow="hidden"
-                        >
-                          {/* Cabeçalho do produto */}
-                          <Flex px={4} py={3} justify="space-between" align="center" bg="white">
-                            <Box>
-                              <Text fontSize="sm" fontWeight="700" color="gray.900">{prod.nome}</Text>
-                              <Text fontSize="xs" color="gray.500" mt="2px">
-                                Quantidade: {prod.quantidade} • Preço Unit.: {formatBRL(prod.precoUnitario ?? 0)} • Total: {formatBRL(prod.precoTotal ?? 0)}
-                              </Text>
-                            </Box>
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              h="28px"
-                              fontSize="11px"
-                              px={3}
-                              gap={1}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                              </svg>
-                              Atualizar Arte
-                            </Button>
-                          </Flex>
+                {/* ── Produtos, Artes e Comentários ── */}
+                {(() => {
+                  const statusIdx = STATUS_FLOW_ORDER.indexOf(detalhe.status)
+                  const artesAprovIdx = STATUS_FLOW_ORDER.indexOf('ARTES_APROVADAS')
+                  const canUpload = statusIdx < artesAprovIdx
+                  const comentariosGerais = (detalhe.comentarios ?? []).filter(c => !c.produtoNome)
 
-                          {/* Arte do produto (se existir) */}
-                          {arte ? (
-                            <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
-                              <HStack gap={3}>
-                                {/* Thumbnail */}
-                                <Box
-                                  w="52px"
-                                  h="44px"
-                                  borderRadius="md"
-                                  overflow="hidden"
-                                  flexShrink={0}
-                                  border="1px solid"
-                                  borderColor="gray.200"
-                                  bg="gray.200"
-                                >
-                                  {arte.imagemUrl ? (
-                                    <img src={arte.imagemUrl} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  return (
+                    <Section title="Produtos e Artes">
+                      <Stack gap={3}>
+                        {detalhe.produtos.map((prod) => {
+                          const arte = detalhe.artes.find((a) => a.produtoNome === prod.nome)
+                          const comentariosProd = (detalhe.comentarios ?? []).filter(c => c.produtoNome === prod.nome)
+                          return (
+                            <Box
+                              key={prod.id}
+                              border="1px solid"
+                              borderColor="gray.200"
+                              borderRadius="lg"
+                              overflow="hidden"
+                            >
+                              {/* Cabeçalho do produto */}
+                              <Flex px={4} py={3} justify="space-between" align="flex-start" bg="white" gap={3}>
+                                <Box flex="1" minW={0}>
+                                  <Text fontSize="sm" fontWeight="700" color="gray.900">{prod.nome}</Text>
+                                  <Text fontSize="xs" color="gray.500" mt="2px">
+                                    Qtd.: {prod.quantidade} • Unit.: {formatBRL(prod.precoUnitario ?? 0)} • Total: {formatBRL(prod.precoTotal ?? 0)}
+                                  </Text>
+
+                                  {/* Desconto inline */}
+                                  {editandoDescontoItemId === prod.id ? (
+                                    <HStack gap={1} mt={2}>
+                                      <Box
+                                        as="span"
+                                        fontSize="11px"
+                                        fontWeight="600"
+                                        color="gray.500"
+                                        whiteSpace="nowrap"
+                                      >
+                                        Desconto R$
+                                      </Box>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={editDescontoValor}
+                                        onChange={(e) => setEditDescontoValor(e.target.value)}
+                                        style={{
+                                          width: '90px',
+                                          fontSize: '12px',
+                                          border: '1px solid #CBD5E0',
+                                          borderRadius: '4px',
+                                          padding: '2px 6px',
+                                          outline: 'none',
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSalvarDesconto(prod.id)
+                                          if (e.key === 'Escape') { setEditandoDescontoItemId(null); setEditDescontoValor('') }
+                                        }}
+                                        autoFocus
+                                      />
+                                      <Button
+                                        size="xs" h="22px" px={2} fontSize="11px"
+                                        bg="gray.900" color="white" _hover={{ bg: 'gray.700' }}
+                                        loading={salvandoDesconto}
+                                        onClick={() => handleSalvarDesconto(prod.id)}
+                                      >
+                                        Salvar
+                                      </Button>
+                                      <Button
+                                        size="xs" h="22px" px={2} fontSize="11px"
+                                        variant="ghost" color="gray.500"
+                                        disabled={salvandoDesconto}
+                                        onClick={() => { setEditandoDescontoItemId(null); setEditDescontoValor('') }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                    </HStack>
                                   ) : (
-                                    <Flex w="full" h="full" align="center" justify="center">
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
-                                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                                        <path d="m9 9 3 3-3 3M15 9l-3 3 3 3" strokeLinecap="round"/>
-                                      </svg>
-                                    </Flex>
+                                    <HStack gap={1} mt="4px">
+                                      {(prod.desconto ?? 0) > 0 && (
+                                        <Text fontSize="xs" color="orange.500" fontWeight="600">
+                                          − {formatBRL(prod.desconto ?? 0)} de desconto
+                                        </Text>
+                                      )}
+                                      <Box
+                                        as="button"
+                                        fontSize="11px"
+                                        color="gray.400"
+                                        _hover={{ color: 'gray.700' }}
+                                        onClick={() => {
+                                          setEditandoDescontoItemId(prod.id)
+                                          setEditDescontoValor(String(prod.desconto ?? 0))
+                                        }}
+                                      >
+                                        {(prod.desconto ?? 0) > 0 ? 'Editar desconto' : '+ Adicionar desconto'}
+                                      </Box>
+                                    </HStack>
                                   )}
                                 </Box>
-                                <Box>
-                                  <HStack gap={1} mb="2px">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                                      <polyline points="14 2 14 8 20 8"/>
-                                    </svg>
-                                    <Text fontSize="xs" fontWeight="600" color="gray.700">
-                                      {arte.imagemUrl ? arte.imagemUrl.split('/').pop() : 'arte.jpg'}
-                                    </Text>
-                                  </HStack>
-                                  <Text fontSize="11px" color="gray.400">Arte enviada</Text>
-                                </Box>
-                              </HStack>
-                            </Box>
-                          ) : (
-                            <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
-                              <Text fontSize="xs" color="gray.400">Nenhuma arte enviada ainda.</Text>
-                            </Box>
-                          )}
-                        </Box>
-                      )
-                    })}
-                    {detalhe.produtos.length === 0 && (
-                      <Text fontSize="sm" color="gray.400">Nenhum produto registrado.</Text>
-                    )}
-                  </Stack>
-                </Section>
+                                {canUpload && (
+                                  <Button
+                                    size="xs" variant="outline" h="28px" fontSize="11px" px={3} gap={1}
+                                    disabled={uploadingArte}
+                                    onClick={() => handleArteClick(prod.nome)}
+                                  >
+                                    {uploadingArte && uploadForProduto.current === prod.nome ? (
+                                      <HStack gap={1}><Spinner size="xs" /><span>Enviando...</span></HStack>
+                                    ) : (
+                                      <HStack gap={1}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
+                                          <polyline points="17 8 12 3 7 8"/>
+                                          <line x1="12" y1="3" x2="12" y2="15"/>
+                                        </svg>
+                                        <span>Atualizar Arte</span>
+                                      </HStack>
+                                    )}
+                                  </Button>
+                                )}
+                              </Flex>
 
-                {/* ── Comentários do Cliente ── */}
-                <Section title="💬 Comentários do Cliente">
-                  <Stack gap={2}>
-                    {detalhe.comentarios && detalhe.comentarios.length > 0 ? (
-                      detalhe.comentarios.map((c) => (
-                        <Box
-                          key={c.id}
-                          border="1px solid"
-                          borderColor="blue.100"
-                          borderRadius="lg"
-                          p={3}
-                          bg="blue.50"
-                        >
-                          <Flex justify="space-between" mb={1}>
-                            <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
-                            <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
-                          </Flex>
-                          <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                              {/* Arte */}
+                              {arte ? (
+                                <Box px={4} py={3} bg="gray.50" borderTop="1px solid" borderColor="gray.100">
+                                  <Flex align="center" justify="space-between" gap={3}>
+                                    <Flex align="center" gap={3} flex="1">
+                                      <Box w="52px" h="52px" borderRadius="md" overflow="hidden" flexShrink={0} border="1px solid" borderColor="gray.300" bg="gray.200">
+                                        {arte.imagemData ? (
+                                          <img src={arte.imagemData} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : arte.imagemUrl ? (
+                                          <img src={arte.imagemUrl} alt="arte" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                          <Flex w="full" h="full" align="center" justify="center">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
+                                              <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                                              <path d="m21 15-5-5L5 21"/>
+                                            </svg>
+                                          </Flex>
+                                        )}
+                                      </Box>
+                                      <Box flex="1" minW={0}>
+                                        <Text fontSize="xs" fontWeight="600" color="gray.700">
+                                          {arte.nomeArquivo ?? 'arte.jpg'}
+                                        </Text>
+                                        <HStack gap={1} mt="4px" flexWrap="wrap">
+                                          {(['PENDENTE', 'APROVADA', 'AJUSTE_SOLICITADO'] as const).map((s) => {
+                                            const isActive = arte.status === s
+                                            const label = s === 'APROVADA' ? 'Aprovada' : s === 'AJUSTE_SOLICITADO' ? 'Ajuste' : 'Pendente'
+                                            const activeBg = s === 'APROVADA' ? '#d1fae5' : s === 'AJUSTE_SOLICITADO' ? '#fee2e2' : '#fef3c7'
+                                            const activeColor = s === 'APROVADA' ? '#065f46' : s === 'AJUSTE_SOLICITADO' ? '#991b1b' : '#92400e'
+                                            return (
+                                              <Box
+                                                key={s}
+                                                as="button"
+                                                px="6px" py="1px" borderRadius="full" fontSize="10px" fontWeight="700"
+                                                border="1px solid"
+                                                bg={isActive ? activeBg : 'white'}
+                                                color={isActive ? activeColor : 'gray.400'}
+                                                borderColor={isActive ? activeColor : 'gray.200'}
+                                                opacity={atualizandoArteId === arte.id ? 0.5 : 1}
+                                                cursor={isActive || atualizandoArteId === arte.id ? 'default' : 'pointer'}
+                                                _hover={!isActive && !atualizandoArteId ? { bg: 'gray.50', borderColor: 'gray.400', color: 'gray.600' } : undefined}
+                                                onClick={!isActive && !atualizandoArteId ? () => handleAvaliarArteAdmin(arte.id, s) : undefined}
+                                              >
+                                                {label}
+                                              </Box>
+                                            )
+                                          })}
+                                        </HStack>
+                                      </Box>
+                                    </Flex>
+                                    <Button
+                                      size="xs" variant="outline" h="28px" fontSize="11px" px={3} gap={1} flexShrink={0}
+                                      disabled={downloadingArteId === arte.id || uploadingArte}
+                                      onClick={() => handleDownloadArte(arte.id)}
+                                    >
+                                      {downloadingArteId === arte.id ? (
+                                        <HStack gap={1}><Spinner size="xs" /><span>Baixando...</span></HStack>
+                                      ) : (
+                                        <HStack gap={1}>
+                                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                          </svg>
+                                          <span>Baixar</span>
+                                        </HStack>
+                                      )}
+                                    </Button>
+                                  </Flex>
+                                </Box>
+                              ) : (
+                                <Box px={4} py="8px" bg="gray.50" borderTop="1px solid" borderColor="gray.100">
+                                  <Text fontSize="xs" color="gray.400">Nenhuma arte enviada ainda.</Text>
+                                </Box>
+                              )}
+
+                              {/* Comentários do produto + input */}
+                              <Stack gap={2} px={4} py={3} borderTop="1px solid" borderColor="gray.100">
+                                {comentariosProd.map((c) => (
+                                  <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                    <Flex justify="space-between" mb="2px">
+                                      <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
+                                      <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                                    </Flex>
+                                    <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                                  </Box>
+                                ))}
+                                {/* Input para novo comentário do produto */}
+                                <HStack gap={2}>
+                                  <input
+                                    value={comentarioTexto[prod.nome] ?? ''}
+                                    onChange={(e) => setComentarioTexto((prev) => ({ ...prev, [prod.nome]: e.target.value }))}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarComentario(prod.nome, prod.nome) }}}
+                                    placeholder="Adicionar comentário..."
+                                    style={{
+                                      flex: 1, border: '1px solid #e5e7eb', borderRadius: '6px',
+                                      padding: '5px 10px', fontSize: '12px', outline: 'none',
+                                      color: '#111827', background: 'white',
+                                    }}
+                                  />
+                                  <Button
+                                    size="xs" h="28px" fontSize="11px" px={3}
+                                    bg="gray.800" color="white" _hover={{ bg: 'gray.700' }}
+                                    disabled={!comentarioTexto[prod.nome]?.trim() || enviandoComentario === prod.nome}
+                                    onClick={() => handleEnviarComentario(prod.nome, prod.nome)}
+                                  >
+                                    {enviandoComentario === prod.nome ? '...' : 'Enviar'}
+                                  </Button>
+                                </HStack>
+                              </Stack>
+                            </Box>
+                          )
+                        })}
+                        {detalhe.produtos.length === 0 && (
+                          <Text fontSize="sm" color="gray.400">Nenhum produto registrado.</Text>
+                        )}
+
+                        {/* Comentários gerais (sem produto) */}
+                        <Box>
+                          <Text fontSize="11px" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={2}>
+                            Comentários Gerais
+                          </Text>
+                          <Stack gap={2}>
+                            {comentariosGerais.map((c) => (
+                              <Box key={c.id} bg="blue.50" border="1px solid" borderColor="blue.100" borderRadius="md" px={3} py={2}>
+                                <Flex justify="space-between" mb="2px">
+                                  <Text fontSize="xs" fontWeight="700" color="blue.600">{c.autor}</Text>
+                                  <Text fontSize="11px" color="gray.400">{c.criadoEm}</Text>
+                                </Flex>
+                                <Text fontSize="xs" color="gray.700">{c.mensagem}</Text>
+                              </Box>
+                            ))}
+                            {/* Input para comentário geral */}
+                            <HStack gap={2}>
+                              <input
+                                value={comentarioTexto['geral'] ?? ''}
+                                onChange={(e) => setComentarioTexto((prev) => ({ ...prev, geral: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviarComentario('geral') }}}
+                                placeholder="Comentário geral (visível apenas para funcionários)..."
+                                style={{
+                                  flex: 1, border: '1px solid #e5e7eb', borderRadius: '6px',
+                                  padding: '5px 10px', fontSize: '12px', outline: 'none',
+                                  color: '#111827', background: 'white',
+                                }}
+                              />
+                              <Button
+                                size="xs" h="28px" fontSize="11px" px={3}
+                                bg="gray.800" color="white" _hover={{ bg: 'gray.700' }}
+                                disabled={!comentarioTexto['geral']?.trim() || enviandoComentario === 'geral'}
+                                onClick={() => handleEnviarComentario('geral')}
+                              >
+                                {enviandoComentario === 'geral' ? '...' : 'Enviar'}
+                              </Button>
+                            </HStack>
+                          </Stack>
                         </Box>
-                      ))
-                    ) : (
-                      <Box
-                        border="1px solid"
-                        borderColor="gray.200"
-                        borderRadius="lg"
-                        p={4}
-                        textAlign="center"
-                      >
-                        <Text fontSize="xs" color="gray.400">Nenhum comentário ainda.</Text>
-                      </Box>
-                    )}
-                  </Stack>
-                </Section>
+                      </Stack>
+                    </Section>
+                  )
+                })()}
 
               </Stack>
             ) : null}
           </DialogBody>
 
-          <DialogFooter borderTop="1px solid" borderColor="gray.100" justifyContent="flex-end">
+          <DialogFooter borderTop="1px solid" borderColor="gray.100" justifyContent="space-between">
+            {/* Botão Notificar Cliente */}
+            {detalhe && (
+              <Box position="relative">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  h="36px"
+                  fontSize="12px"
+                  px={3}
+                  gap={1}
+                  disabled={notificando}
+                  onClick={() => setNotifOpen((o) => !o)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  {notificando ? 'Enviando...' : 'Notificar Cliente'}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </Button>
+
+                {notifOpen && (
+                  <Box
+                    position="absolute" bottom="calc(100% + 8px)" left={0} zIndex={50}
+                    bg="white" border="1px solid" borderColor="gray.200" borderRadius="md"
+                    boxShadow="0 4px 12px rgba(0,0,0,0.10)" overflow="hidden" minW="200px"
+                  >
+                    <Box
+                      px={3} py="9px" fontSize="12px" color="gray.700" cursor="pointer"
+                      _hover={{ bg: 'gray.50' }}
+                      onMouseDown={() => handleNotificar('status')}
+                    >
+                      <Text fontWeight="600">Notificar status atual</Text>
+                      <Text fontSize="11px" color="gray.400">Informa o cliente sobre o status do pedido</Text>
+                    </Box>
+                    <Box h="1px" bg="gray.100" />
+                    <Box
+                      px={3} py="9px" fontSize="12px" color="gray.700" cursor="pointer"
+                      _hover={{ bg: 'gray.50' }}
+                      onMouseDown={() => handleNotificar('arte')}
+                    >
+                      <Text fontWeight="600">Notificar alteração na arte</Text>
+                      <Text fontSize="11px" color="gray.400">Solicita que o cliente aprove a arte</Text>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
             <Button
               bg="gray.900"
               color="white"
@@ -594,14 +971,116 @@ const DetalheVendaModal = ({ isOpen, onClose, vendaId, token, onVendaAtualizada 
   )
 }
 
+// ─── ComboBox: input livre + sugestões estilizadas ────────────────────────────
+
+const ComboBox = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+}) => {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const filtered = options.filter((o) => o.toLowerCase().includes(value.toLowerCase()))
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <Box ref={ref} position="relative">
+      <Box
+        display="flex"
+        alignItems="center"
+        h="32px"
+        border="1px solid"
+        borderColor={open ? 'gray.400' : 'gray.200'}
+        borderRadius="md"
+        bg="white"
+        px={2}
+        gap={1}
+        cursor="text"
+        onClick={() => setOpen(true)}
+        transition="border-color 0.15s"
+      >
+        <input
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          style={{
+            flex: 1, border: 'none', outline: 'none', fontSize: '13px',
+            background: 'transparent', color: '#111827', minWidth: 0,
+          }}
+        />
+        <Box
+          as="button"
+          color="gray.400"
+          flexShrink={0}
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); setOpen((o) => !o) }}
+          _hover={{ color: 'gray.600' }}
+          lineHeight="1"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </Box>
+      </Box>
+
+      {open && filtered.length > 0 && (
+        <Box
+          position="absolute"
+          top="calc(100% + 4px)"
+          left={0}
+          right={0}
+          zIndex={50}
+          bg="white"
+          border="1px solid"
+          borderColor="gray.200"
+          borderRadius="md"
+          boxShadow="0 4px 12px rgba(0,0,0,0.10)"
+          overflow="hidden"
+        >
+          {filtered.map((opt) => (
+            <Box
+              key={opt}
+              px={3}
+              py="7px"
+              fontSize="13px"
+              color="gray.800"
+              cursor="pointer"
+              bg={value === opt ? 'gray.50' : 'white'}
+              fontWeight={value === opt ? '600' : '400'}
+              _hover={{ bg: 'gray.50' }}
+              onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); onChange(opt); setOpen(false) }}
+            >
+              {opt}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 // ─── Modal de Nova Venda (layout baseado no Figma) ─────────────────────────────
 
 interface NovaVendaModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
 }
 
-export const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
+export const NovaVendaModal = ({ isOpen, onClose, onSuccess }: NovaVendaModalProps) => {
   const { token } = useAuth();
   
   // ─── ESTADOS ──────────────────────────────────────────────────────────
@@ -612,7 +1091,7 @@ export const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
   const [cliente, setCliente] = useState({ nome: '', telefone: '', email: '' });
   
   // Estado dos Produtos (Começa com 1 linha vazia)
-  const [itens, setItens] = useState([{ produtoId: '', quantidade: 1, precoUnit: 0 }]);
+  const [itens, setItens] = useState([{ produtoId: '', quantidade: 1, precoUnit: 0, desconto: 0 }]);
   
   // Estado do Pagamento
   const [pagamento, setPagamento] = useState({ metodo: '', valor: 0 });
@@ -626,14 +1105,19 @@ export const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
     } else {
       // Limpa o formulário ao fechar
       setCliente({ nome: '', telefone: '', email: '' });
-      setItens([{ produtoId: '', quantidade: 1, precoUnit: 0 }]);
+      setItens([{ produtoId: '', quantidade: 1, precoUnit: 0, desconto: 0 }]);
       setPagamento({ metodo: '', valor: 0});
     }
   }, [isOpen, token]);
 
   // ─── LÓGICA DO CARRINHO (PRODUTOS) ────────────────────────────────────
   const handleAddProduto = () => {
-    setItens([...itens, { produtoId: '', quantidade: 1, precoUnit: 0 }]);
+    setItens([...itens, { produtoId: '', quantidade: 1, precoUnit: 0, desconto: 0 }]);
+  };
+
+  const handleRemoveProduto = (index: number) => {
+    if (itens.length === 1) return;
+    setItens(itens.filter((_, i) => i !== index));
   };
 
   const handleItemChange = (index: number, field: string, value: any) => {
@@ -651,7 +1135,10 @@ export const NovaVendaModal = ({ isOpen, onClose }: NovaVendaModalProps) => {
   };
 
   // Cálculo Dinâmico do Total
-  const valorTotalCalculado = itens.reduce((acc, item) => acc + (item.quantidade * item.precoUnit), 0);
+  const valorTotalCalculado = itens.reduce(
+    (acc, item) => acc + Math.max(0, item.quantidade * item.precoUnit - item.desconto),
+    0,
+  );
 
   // ─── SUBMETER VENDA ───────────────────────────────────────────────────
 const handleSubmit = async () => {
@@ -677,7 +1164,9 @@ const handleSubmit = async () => {
       const payloadOrcamento = {
         itens: produtosValidos.map(i => ({
           produtoId: Number(i.produtoId),
-          quantidade: Number(i.quantidade)
+          quantidade: Number(i.quantidade),
+          precoUnitario: Number(i.precoUnit),
+          desconto: Number(i.desconto) || 0,
         })),
         observacoes: "Venda registada via painel administrativo",
         nomeCliente: cliente.nome,         
@@ -696,7 +1185,8 @@ const handleSubmit = async () => {
       }
 
       toaster.success({ title: 'Venda registada com sucesso!' });
-      onClose(); 
+      onSuccess?.();
+      onClose();
     } catch (error) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao registar a venda.';
@@ -720,7 +1210,9 @@ const handleSubmit = async () => {
             <VStack align="stretch" gap={4}>
               {/* ─── Informações do Cliente ─── */}
               <Box>
-                <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>Informações do Cliente</Text>
+                <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={3}>
+                  Informações do Cliente
+                </Text>
                 <VStack align="stretch" gap={3}>
                   <Box>
                     <Text as="label" fontSize="xs" mb={1} display="block">Nome Completo *</Text>
@@ -746,74 +1238,144 @@ const handleSubmit = async () => {
               </Box>
 
               {/* ─── Produtos ─── */}
-              <Box mt={4}>
-                <HStack justify="space-between" mb={2}>
-                  <Text fontSize="xs" fontWeight="700" color="gray.500">Produtos</Text>
-                  <Button variant="ghost" size="xs" height="24px" fontSize="11px" fontWeight="600" color="gray.700" px={2}
-                    onClick={handleAddProduto}
+              <Box>
+                <HStack justify="space-between" mb={3}>
+                  <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px">
+                    Produtos
+                  </Text>
+                  <Button
+                    variant="ghost" size="xs" height="26px" fontSize="11px" fontWeight="600"
+                    color="gray.600" px={2} gap={1} onClick={handleAddProduto}
                   >
-                    + Adicionar Produto
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Adicionar Produto
                   </Button>
                 </HStack>
 
-                <VStack align="stretch" gap={3}>
-                  {itens.map((item, index) => (
-                    <HStack key={index} gap={3} align="flex-end">
-                      <Box flex="2">
-                        <Text as="label" fontSize="xs" mb={1} display="block">Nome do Produto *</Text>
-                        <select
-                          value={item.produtoId}
-                          onChange={(e) => handleItemChange(index, 'produtoId', e.target.value)}
-                          style={{
-                            width: '100%', height: '32px', padding: '0 8px', border: '1px solid #E2E8F0',
-                            borderRadius: '6px', fontSize: '13px', background: 'white',
-                          }}
-                        >
-                          <option value="">Selecione o Produto</option>
-                          {produtosDisponiveis.map(prod => (
-                            <option key={prod.id} value={prod.id}>{prod.nome}</option>
-                          ))}
-                        </select>
+                <VStack align="stretch" gap={2}>
+                  {itens.map((item, index) => {
+                    const subtotal = Math.max(0, item.quantidade * item.precoUnit - item.desconto)
+                    return (
+                      <Box
+                        key={index}
+                        border="1px solid"
+                        borderColor="gray.200"
+                        borderRadius="lg"
+                        p={3}
+                        bg="gray.50"
+                      >
+                        {/* Linha 1: seletor + botão remover */}
+                        <HStack gap={2} mb={3}>
+                          <Box flex="1">
+                            <Text as="label" fontSize="11px" fontWeight="600" color="gray.500" mb={1} display="block">
+                              Produto
+                            </Text>
+                            <select
+                              value={item.produtoId}
+                              onChange={(e) => handleItemChange(index, 'produtoId', e.target.value)}
+                              style={{
+                                width: '100%', height: '32px', padding: '0 8px',
+                                border: '1px solid #E2E8F0', borderRadius: '6px',
+                                fontSize: '13px', background: 'white', outline: 'none',
+                              }}
+                            >
+                              <option value="">Selecione o produto</option>
+                              {produtosDisponiveis.map(prod => (
+                                <option key={prod.id} value={prod.id}>{prod.nome}</option>
+                              ))}
+                            </select>
+                          </Box>
+                          {itens.length > 1 && (
+                            <Box pt="18px">
+                              <Box
+                                as="button"
+                                w="28px" h="28px"
+                                display="flex" alignItems="center" justifyContent="center"
+                                borderRadius="md"
+                                color="red.400"
+                                _hover={{ bg: 'red.50', color: 'red.600' }}
+                                onClick={() => handleRemoveProduto(index)}
+                                title="Remover produto"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                  <path d="M10 11v6M14 11v6"/>
+                                  <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                                </svg>
+                              </Box>
+                            </Box>
+                          )}
+                        </HStack>
+
+                        {/* Linha 2: qtd | preço unit | desconto | subtotal */}
+                        <HStack gap={2} align="flex-end">
+                          <Box flex="1">
+                            <Text as="label" fontSize="11px" fontWeight="600" color="gray.500" mb={1} display="block">
+                              Qtd.
+                            </Text>
+                            <Input
+                              size="sm" type="number" min={1} bg="white"
+                              value={item.quantidade}
+                              onChange={(e) => handleItemChange(index, 'quantidade', Number(e.target.value))}
+                            />
+                          </Box>
+                          <Box flex="1.5">
+                            <Text as="label" fontSize="11px" fontWeight="600" color="gray.500" mb={1} display="block">
+                              Preço Unit. (R$)
+                            </Text>
+                            <Input
+                              size="sm" type="number" min={0} step="0.01" bg="white"
+                              value={item.precoUnit}
+                              onChange={(e) => handleItemChange(index, 'precoUnit', Number(e.target.value))}
+                            />
+                          </Box>
+                          <Box flex="1.5">
+                            <Text as="label" fontSize="11px" fontWeight="600" color="gray.500" mb={1} display="block">
+                              Desconto (R$)
+                            </Text>
+                            <Input
+                              size="sm" type="number" min={0} step="0.01" bg="white"
+                              value={item.desconto}
+                              onChange={(e) => handleItemChange(index, 'desconto', Number(e.target.value))}
+                            />
+                          </Box>
+                          <Box flex="1.5" pb="1px">
+                            <Text fontSize="11px" fontWeight="600" color="gray.500" mb={1}>Subtotal</Text>
+                            <Box
+                              h="32px" px={3}
+                              border="1px solid" borderColor="gray.200"
+                              borderRadius="md" bg="white"
+                              display="flex" alignItems="center"
+                            >
+                              <Text fontSize="sm" fontWeight="700" color="gray.800">
+                                {formatBRL(subtotal)}
+                              </Text>
+                            </Box>
+                          </Box>
+                        </HStack>
                       </Box>
-                      <Box flex="1">
-                        <Text as="label" fontSize="xs" mb={1} display="block">Quantidade *</Text>
-                        <Input size="sm" type="number" min={1} 
-                          value={item.quantidade} 
-                          onChange={(e) => handleItemChange(index, 'quantidade', Number(e.target.value))} 
-                        />
-                      </Box>
-                      <Box flex="1">
-                        <Text as="label" fontSize="xs" mb={1} display="block">Preço Unit.</Text>
-                        <Input size="sm" type="number" min={0} step="0.01" 
-                          value={item.precoUnit} 
-                          onChange={(e) => handleItemChange(index, 'precoUnit', Number(e.target.value))} 
-                        />
-                      </Box>
-                    </HStack>
-                  ))}
+                    )
+                  })}
                 </VStack>
               </Box>
 
               {/* ─── Informações de Pagamento ─── */}
-              <Box mt={4}>
-                <Text fontSize="xs" fontWeight="700" color="gray.500" mb={2}>Informações de Pagamento</Text>
+              <Box>
+                <Text fontSize="xs" fontWeight="700" color="gray.500" textTransform="uppercase" letterSpacing="0.5px" mb={3}>
+                  Pagamento
+                </Text>
                 <HStack gap={3}>
                   <Box flex="1">
-                    <Text as="label" fontSize="xs" mb={1} display="block">Método de Pagamento *</Text>
-                    <select
+                    <Text fontSize="xs" mb={1} display="block">Método de Pagamento</Text>
+                    <ComboBox
                       value={pagamento.metodo}
-                      onChange={(e) => setPagamento({ ...pagamento, metodo: e.target.value })}
-                      style={{
-                        width: '100%', height: '32px', padding: '0 8px', border: '1px solid #E2E8F0',
-                        borderRadius: '6px', fontSize: '13px', background: 'white',
-                      }}
-                    >
-                      <option value="">Selecione o método</option>
-                      <option value="PIX">PIX</option>
-                      <option value="BOLETO">Boleto</option>
-                      <option value="CARTAO_CREDITO">Cartão de Crédito</option>
-                      <option value="CARTAO_DEBITO">Cartão de Débito</option>
-                    </select>
+                      onChange={(v) => setPagamento({ ...pagamento, metodo: v })}
+                      placeholder="PIX, Boleto, ou outro..."
+                      options={['PIX', 'Boleto', 'Cartão de Crédito', 'Cartão de Débito', 'Transferência', 'Dinheiro']}
+                    />
                   </Box>
                   <Box flex="1">
                     <Text as="label" fontSize="xs" mb={1} display="block">Valor Pago</Text>
@@ -855,7 +1417,7 @@ const handleSubmit = async () => {
 // ─── Página principal ──────────────────────────────────────────────────────────
 
 export const VendasClientes = () => {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [search, setSearch] = useState('')
   const [statusFiltro, setStatusFiltro] = useState('')
   const [isNovaVendaOpen, setIsNovaVendaOpen] = useState(false)
@@ -1105,13 +1667,18 @@ export const VendasClientes = () => {
           </SectionCard>
         </Box>
 
-        <NovaVendaModal isOpen={isNovaVendaOpen} onClose={() => setIsNovaVendaOpen(false)} />
+        <NovaVendaModal
+          isOpen={isNovaVendaOpen}
+          onClose={() => setIsNovaVendaOpen(false)}
+          onSuccess={() => setReloadKey((k) => k + 1)}
+        />
 
         <DetalheVendaModal
           isOpen={detalheVendaId != null}
           onClose={() => setDetalheVendaId(null)}
           vendaId={detalheVendaId}
           token={token}
+          userName={user?.nome ?? user?.email ?? 'Sistema'}
           onVendaAtualizada={() => setReloadKey((k) => k + 1)}
         />
       </Container>

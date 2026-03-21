@@ -7,20 +7,26 @@ import { useAuth } from '../context/useAuth'
 import { orcamentoService, type MeusOrcamentosItemResponseDTO } from '../services/orcamentoService'
 import type { PageResponse } from '../types/estoqueServiceTypes'
 
-type OrcamentoStatus = 'ARTE_PENDENTE' | 'EM_PRODUCAO' | 'CONCLUIDO' | 'ORCAMENTO_SOLICITADO'
+type OrcamentoStatus = string
 
-const STATUS_LABEL: Record<OrcamentoStatus, string> = {
-  ARTE_PENDENTE: 'Arte Pendente',
-  EM_PRODUCAO: 'Em Produção',
-  CONCLUIDO: 'Concluído',
+const STATUS_LABEL: Record<string, string> = {
   ORCAMENTO_SOLICITADO: 'Orçamento Solicitado',
+  PAGAMENTO_APROVADO:   'Pagamento Aprovado',
+  ARTE_PENDENTE:        'Arte Pendente',
+  ARTES_APROVADAS:      'Artes Aprovadas',
+  EM_PRODUCAO:          'Em Produção',
+  CONCLUIDO:            'Concluído',
+  CANCELADO:            'Cancelado',
 }
 
-const STATUS_COLOR: Record<OrcamentoStatus, { bg: string; color: string }> = {
-  ARTE_PENDENTE: { bg: 'orange.100', color: 'orange.700' },
-  EM_PRODUCAO: { bg: 'purple.100', color: 'purple.700' },
-  CONCLUIDO: { bg: 'green.100', color: 'green.700' },
-  ORCAMENTO_SOLICITADO: { bg: 'blue.100', color: 'blue.700' },
+const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
+  ORCAMENTO_SOLICITADO: { bg: 'orange.100', color: 'orange.700' },
+  PAGAMENTO_APROVADO:   { bg: 'blue.100',   color: 'blue.700' },
+  ARTE_PENDENTE:        { bg: 'yellow.100', color: 'yellow.800' },
+  ARTES_APROVADAS:      { bg: 'green.100',  color: 'green.700' },
+  EM_PRODUCAO:          { bg: 'purple.100', color: 'purple.700' },
+  CONCLUIDO:            { bg: 'green.100',  color: 'green.700' },
+  CANCELADO:            { bg: 'red.100',    color: 'red.700' },
 }
 
 const formatPreco = (value: number) =>

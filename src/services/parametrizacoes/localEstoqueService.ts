@@ -73,5 +73,13 @@ export const localEstoqueService = {
       throw new Error(msg || `Erro HTTP ${res.status}`)
     }
   },
+
+  async toggleStatus(id: number, token?: string | null): Promise<LocalEstoqueResponse> {
+    const res = await fetch(apiUrl(`${API_ENDPOINTS.estoque.locais}/${id}/toggle`), {
+      method: 'PATCH',
+      headers: { ...authHeaders(token) },
+    })
+    return getJsonOrThrow<LocalEstoqueResponse>(res)
+  },
 }
 

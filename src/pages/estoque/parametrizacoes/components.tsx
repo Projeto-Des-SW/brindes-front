@@ -1,9 +1,67 @@
 import type { ReactNode } from 'react'
-import { Box, Button, Flex, MenuContent, MenuItem, MenuRoot, MenuTrigger } from '@chakra-ui/react'
+import { Box, Button, Flex, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, Stack } from '@chakra-ui/react'
 import { PencilIcon } from '../../../components/icons'
 import { SimpleTable } from '../components'
 import { formatInt } from '../format'
 import type { CategoriaRow, FornecedorRow, LocalEstoqueRow, MateriaPrimaRow, ParamTabKey, StatusAtivo } from './types'
+
+const RowActionsPopover = ({
+  onEdit,
+  onToggle,
+  toggleLabel = 'Inativar',
+  toggleColor = 'red.600',
+  toggleHoverBg = 'red.50',
+}: {
+  onEdit?: () => void
+  onToggle?: () => void
+  toggleLabel?: string
+  toggleColor?: string
+  toggleHoverBg?: string
+}) => (
+  <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações">
+        <PencilIcon size={16} />
+      </Button>
+    </PopoverTrigger>
+    <PopoverPositioner>
+      <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+        <PopoverBody p={1}>
+          <Stack gap={0}>
+            <Button
+              variant="ghost"
+              size="sm"
+              justifyContent="flex-start"
+              fontWeight="400"
+              fontSize="sm"
+              borderRadius="sm"
+              px={3}
+              h="34px"
+              onClick={onEdit}
+            >
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              justifyContent="flex-start"
+              fontWeight="400"
+              fontSize="sm"
+              borderRadius="sm"
+              px={3}
+              h="34px"
+              color={toggleColor}
+              _hover={{ bg: toggleHoverBg }}
+              onClick={onToggle}
+            >
+              {toggleLabel}
+            </Button>
+          </Stack>
+        </PopoverBody>
+      </PopoverContent>
+    </PopoverPositioner>
+  </PopoverRoot>
+)
 
 const tabLabel: Record<ParamTabKey, string> = {
   fornecedores: 'FORNECEDORES',
@@ -77,11 +135,11 @@ const TableCellTruncate = ({ maxW, title, children }: { maxW: string; title: str
 export const FornecedoresTable = ({
   rows,
   onEdit,
-  onDelete,
+  onToggle,
 }: {
   rows: FornecedorRow[]
   onEdit?: (row: FornecedorRow) => void
-  onDelete?: (row: FornecedorRow) => void
+  onToggle?: (row: FornecedorRow) => void
 }) => {
   const columns = [
     { label: 'Nome', w: '220px' },
@@ -120,21 +178,13 @@ export const FornecedoresTable = ({
             <AtivoPill status={r.status} />
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do fornecedor">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover
+              onEdit={() => onEdit?.(r)}
+              onToggle={() => onToggle?.(r)}
+              toggleLabel={r.status === 'INATIVO' ? 'Ativar' : 'Inativar'}
+              toggleColor={r.status === 'INATIVO' ? 'green.600' : 'red.600'}
+              toggleHoverBg={r.status === 'INATIVO' ? 'green.50' : 'red.50'}
+            />
           </Box>
         </Box>
       ))}
@@ -145,11 +195,11 @@ export const FornecedoresTable = ({
 export const MateriasPrimasTable = ({
   rows,
   onEdit,
-  onDelete,
+  onToggle,
 }: {
   rows: MateriaPrimaRow[]
   onEdit?: (row: MateriaPrimaRow) => void
-  onDelete?: (row: MateriaPrimaRow) => void
+  onToggle?: (row: MateriaPrimaRow) => void
 }) => {
   const columns = [
     { label: 'Código', w: '140px' },
@@ -212,21 +262,13 @@ export const MateriasPrimasTable = ({
             {formatInt(r.estoqueMinimo)}
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações da matéria-prima">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover
+              onEdit={() => onEdit?.(r)}
+              onToggle={() => onToggle?.(r)}
+              toggleLabel={r.status === 'INATIVO' ? 'Ativar' : 'Inativar'}
+              toggleColor={r.status === 'INATIVO' ? 'green.600' : 'red.600'}
+              toggleHoverBg={r.status === 'INATIVO' ? 'green.50' : 'red.50'}
+            />
           </Box>
         </Box>
       ))}
@@ -237,11 +279,11 @@ export const MateriasPrimasTable = ({
 export const LocaisEstoqueTable = ({
   rows,
   onEdit,
-  onDelete,
+  onToggle,
 }: {
   rows: LocalEstoqueRow[]
   onEdit?: (row: LocalEstoqueRow) => void
-  onDelete?: (row: LocalEstoqueRow) => void
+  onToggle?: (row: LocalEstoqueRow) => void
 }) => {
   const columns = [
     { label: 'Nome', w: '260px' },
@@ -264,21 +306,13 @@ export const LocaisEstoqueTable = ({
             </TableCellTruncate>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do local de estoque">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover
+              onEdit={() => onEdit?.(r)}
+              onToggle={() => onToggle?.(r)}
+              toggleLabel={r.status === 'INATIVO' ? 'Ativar' : 'Inativar'}
+              toggleColor={r.status === 'INATIVO' ? 'green.600' : 'red.600'}
+              toggleHoverBg={r.status === 'INATIVO' ? 'green.50' : 'red.50'}
+            />
           </Box>
         </Box>
       ))}
@@ -289,11 +323,11 @@ export const LocaisEstoqueTable = ({
 export const CategoriasTable = ({
   rows,
   onEdit,
-  onDelete,
+  onToggle,
 }: {
   rows: CategoriaRow[]
   onEdit?: (row: CategoriaRow) => void
-  onDelete?: (row: CategoriaRow) => void
+  onToggle?: (row: CategoriaRow) => void
 }) => {
   const columns = [
     { label: '#', w: '60px' },
@@ -314,21 +348,13 @@ export const CategoriasTable = ({
             </TableCellTruncate>
           </Box>
           <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-            <MenuRoot positioning={{ placement: 'bottom-end' }}>
-              <MenuTrigger asChild>
-                <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações da categoria">
-                  <PencilIcon size={16} />
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem value="edit" onClick={() => onEdit?.(r)}>
-                  Editar
-                </MenuItem>
-                <MenuItem value="delete" onClick={() => onDelete?.(r)} color="red.600">
-                  Excluir
-                </MenuItem>
-              </MenuContent>
-            </MenuRoot>
+            <RowActionsPopover
+              onEdit={() => onEdit?.(r)}
+              onToggle={() => onToggle?.(r)}
+              toggleLabel={r.status === 'INATIVO' ? 'Ativar' : 'Inativar'}
+              toggleColor={r.status === 'INATIVO' ? 'green.600' : 'red.600'}
+              toggleHoverBg={r.status === 'INATIVO' ? 'green.50' : 'red.50'}
+            />
           </Box>
         </Box>
       ))}

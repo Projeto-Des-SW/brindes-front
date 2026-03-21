@@ -31,6 +31,10 @@ export const materiaPrimaService = {
         unidade: mp.unidade ?? '',
         categoria: mp.categoria ?? '',
         fornecedorPrincipal: mp.fornecedorPrincipal ?? '',
+        fornecedorSecundarioId: (mp as any).fornecedorSecundarioId ?? null,
+        fornecedorSecundario: (mp as any).fornecedorSecundario ?? '',
+        localEstoqueId: (mp as any).localEstoqueId ?? null,
+        localEstoque: (mp as any).localEstoque ?? '',
         estoqueAtual: Number((mp as any).estoqueAtual ?? 0),
         estoqueMinimo: Number((mp as any).estoqueMinimo ?? 0),
       })),
@@ -65,6 +69,10 @@ export const materiaPrimaService = {
       unidade: data.unidade ?? '',
       categoria: data.categoria ?? '',
       fornecedorPrincipal: data.fornecedorPrincipal ?? '',
+      fornecedorSecundarioId: (data as any).fornecedorSecundarioId ?? null,
+      fornecedorSecundario: (data as any).fornecedorSecundario ?? '',
+      localEstoqueId: (data as any).localEstoqueId ?? null,
+      localEstoque: (data as any).localEstoque ?? '',
       estoqueAtual: Number(data.estoqueAtual ?? 0),
       estoqueMinimo: Number(data.estoqueMinimo ?? 0),
     }
@@ -78,6 +86,8 @@ export const materiaPrimaService = {
       categoria?: string
       categoriaId?: number | null
       fornecedorPrincipalId?: number | null
+      fornecedorSecundarioId?: number | null
+      localEstoqueId?: number | null
       estoqueMinimo?: number
     },
     token?: string | null,
@@ -97,6 +107,10 @@ export const materiaPrimaService = {
       unidade: mp.unidade ?? '',
       categoria: mp.categoria ?? '',
       fornecedorPrincipal: mp.fornecedorPrincipal ?? '',
+      fornecedorSecundarioId: mp.fornecedorSecundarioId ?? null,
+      fornecedorSecundario: mp.fornecedorSecundario ?? '',
+      localEstoqueId: mp.localEstoqueId ?? null,
+      localEstoque: mp.localEstoque ?? '',
       estoqueAtual: Number((mp as any).estoqueAtual ?? 0),
       estoqueMinimo: Number((mp as any).estoqueMinimo ?? 0),
     }
@@ -111,6 +125,8 @@ export const materiaPrimaService = {
       categoria?: string
       categoriaId?: number | null
       fornecedorPrincipalId?: number | null
+      fornecedorSecundarioId?: number | null
+      localEstoqueId?: number | null
       estoqueMinimo?: number
     },
     token?: string | null,
@@ -130,6 +146,10 @@ export const materiaPrimaService = {
       unidade: mp.unidade ?? '',
       categoria: mp.categoria ?? '',
       fornecedorPrincipal: mp.fornecedorPrincipal ?? '',
+      fornecedorSecundarioId: mp.fornecedorSecundarioId ?? null,
+      fornecedorSecundario: mp.fornecedorSecundario ?? '',
+      localEstoqueId: mp.localEstoqueId ?? null,
+      localEstoque: mp.localEstoque ?? '',
       estoqueAtual: Number((mp as any).estoqueAtual ?? 0),
       estoqueMinimo: Number((mp as any).estoqueMinimo ?? 0),
     }
@@ -145,6 +165,14 @@ export const materiaPrimaService = {
       const msg = await parseErrorMessage(res)
       throw new Error(msg || `Erro HTTP ${res.status}`)
     }
+  },
+
+  async toggleStatus(id: number, token?: string | null): Promise<MateriaPrimaResponse> {
+    const res = await fetch(apiUrl(`${API_ENDPOINTS.estoque.materiasPrimas}/${id}/toggle`), {
+      method: 'PATCH',
+      headers: { ...authHeaders(token) },
+    })
+    return getJsonOrThrow<MateriaPrimaResponse>(res)
   },
 }
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Flex, HStack, Heading, Stack, Text, SimpleGrid } from '@chakra-ui/react'
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '@chakra-ui/react'
+import { Box, Button, Container, Flex, HStack, Heading, PopoverBody, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger, SimpleGrid, Spinner, Stack, Text } from '@chakra-ui/react'
 import { SectionCard, SearchInput, SelectLike } from '../estoque/components'
 import { AppBreadcrumbs } from '../../components/AppBreadcrumbs'
 
@@ -9,7 +8,7 @@ import { produtoService } from '../../services/produtoService'
 import type { ProdutoResponse, ProdutoRequest } from '../../services/produtoService'
 import { formatBRL, formatInt } from '../estoque/format'
 import { PencilIcon } from '../../components/icons'
-import ProdutoUpsertDialog, { ConfirmDeleteDialog } from './modals'
+import ProdutoUpsertDialog from './modals'
 
 const StatusProdutoPill = ({ status }: { status: string }) => {
   const isAtivo = status === 'ATIVO'
@@ -53,9 +52,6 @@ const ProdutoCard = ({
         <Box color="gray.400" flexShrink={0}>{icon}</Box>
         <Text fontSize="xs" color="gray.500" fontWeight="600">{title}</Text>
       </Flex>
-      <Box color="gray.400">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 17l9.2-9.2M17 17V8H8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </Box>
     </Flex>
     <Text mt={3} fontSize="2xl" fontWeight="800" color="gray.900" letterSpacing="-0.02em">
       {value}
@@ -67,16 +63,14 @@ const ProdutosResumoGrid = ({
   totalProdutos,
   totalAtivos,
   produtosBloqueados,
-  produtosSemMovimentacao,
 }: {
   totalProdutos: number
   totalAtivos: number
   produtosBloqueados: number
-  produtosSemMovimentacao: number
 }) => {
   const formatNum = (n: number) => n.toLocaleString('pt-BR')
   return (
-    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 4 }} gap={4}>
+    <SimpleGrid mt={5} columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
       <ProdutoCard
         title="Total de Produtos"
         value={formatNum(totalProdutos)}
@@ -91,11 +85,6 @@ const ProdutosResumoGrid = ({
         title="Produtos Inativos"
         value={formatNum(produtosBloqueados)}
         icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" /><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}
-      />
-      <ProdutoCard
-        title="Produtos sem movimentação"
-        value={produtosSemMovimentacao ? formatNum(produtosSemMovimentacao) : '\u2014'}
-        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" /><path d="M16 7V5a4 4 0 0 0-8 0v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>}
       />
     </SimpleGrid>
   )
@@ -117,11 +106,8 @@ export const ProdutosPage = () => {
   const [produtoEditando, setProdutoEditando] = useState<ProdutoResponse | null>(null)
   const [openEdicao, setOpenEdicao] = useState(false)
 
-  // Exclusão
-  const [produtoExcluindo, setProdutoExcluindo] = useState<ProdutoResponse | null>(null)
-  const [openDelete, setOpenDelete] = useState(false)
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  // Toggle loading
+  const [togglingId, setTogglingId] = useState<number | null>(null)
 
   const fetchProdutos = () => {
     const controller = new AbortController()
@@ -168,24 +154,22 @@ export const ProdutosPage = () => {
     { label: 'Produto', w: '320px' },
     { label: 'Status', w: '120px', align: 'center' as const },
     { label: 'Valor Total', w: '120px', align: 'right' as const },
-    { label: 'Quantidade Disponível', w: '140px', align: 'right' as const },
-    { label: 'Ações', w: '80px', align: 'center' as const },
+    { label: 'Ações', w: '160px', align: 'center' as const },
   ]
 
   const totalProdutos = produtos.length
   const totalAtivos = produtos.filter((p) => p.status === 'ATIVO').length
   const produtosBloqueados = produtos.filter((p) => p.status === 'INATIVO').length
-  const produtosSemMovimentacao = 0
+
+  const reloadProdutos = async () => {
+    const page = await produtoService.listar({ page: 1, pageSize: 50 }, token)
+    setProdutos(page.items)
+  }
 
   const handleCriarProduto = async (data: ProdutoRequest) => {
-    try {
-      await produtoService.criar(data, token)
-      setOpenCadastro(false)
-      fetchProdutos()
-    } catch (e) {
-      console.error('Erro ao cadastrar produto:', e)
-      setErrorProdutos(e instanceof Error ? e.message : 'Erro ao cadastrar produto')
-    }
+    await produtoService.criar(data, token)
+    await reloadProdutos()
+    setOpenCadastro(false)
   }
 
   const handleAbrirEdicao = (produto: ProdutoResponse) => {
@@ -195,36 +179,21 @@ export const ProdutosPage = () => {
 
   const handleEditarProduto = async (data: ProdutoRequest) => {
     if (!produtoEditando) return
-    try {
-      await produtoService.atualizar(produtoEditando.id, data, token)
-      setOpenEdicao(false)
-      setProdutoEditando(null)
-      fetchProdutos()
-    } catch (e) {
-      console.error('Erro ao editar produto:', e)
-      setErrorProdutos(e instanceof Error ? e.message : 'Erro ao editar produto')
-    }
+    await produtoService.atualizar(produtoEditando.id, data, token)
+    await reloadProdutos()
+    setOpenEdicao(false)
+    setProdutoEditando(null)
   }
 
-  const handleAbrirDelete = (produto: ProdutoResponse) => {
-    setProdutoExcluindo(produto)
-    setDeleteError(null)
-    setOpenDelete(true)
-  }
-
-  const handleConfirmarDelete = async () => {
-    if (!produtoExcluindo) return
-    setDeleteSubmitting(true)
-    setDeleteError(null)
+  const handleToggleStatus = async (produto: ProdutoResponse) => {
+    setTogglingId(produto.id)
     try {
-      await produtoService.remover(produtoExcluindo.id, token)
-      setOpenDelete(false)
-      setProdutoExcluindo(null)
-      fetchProdutos()
+      await produtoService.toggleStatus(produto.id, token)
+      await reloadProdutos()
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : 'Erro ao excluir produto')
+      // ignore
     } finally {
-      setDeleteSubmitting(false)
+      setTogglingId(null)
     }
   }
 
@@ -248,7 +217,6 @@ export const ProdutosPage = () => {
           totalProdutos={totalProdutos}
           totalAtivos={totalAtivos}
           produtosBloqueados={produtosBloqueados}
-          produtosSemMovimentacao={produtosSemMovimentacao}
         />
 
         <Stack mt={6} gap={6}>
@@ -311,6 +279,31 @@ export const ProdutosPage = () => {
                           {col.label}
                         </Box>
                       ))}
+                      <Box
+                        as="th"
+                        textAlign="right"
+                        fontSize="xs"
+                        color="gray.500"
+                        fontWeight="700"
+                        px={3}
+                        py={3}
+                        borderBottom="1px solid"
+                        borderColor="gray.200"
+                        w="140px"
+                      >
+                        <HStack gap={1} justify="flex-end">
+                          <span>Qtd. Disponível</span>
+                          <Box
+                            as="span"
+                            cursor="help"
+                            color="gray.400"
+                            lineHeight="1"
+                            title="Calculado automaticamente com base no estoque das matérias-primas utilizadas na produção"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                          </Box>
+                        </HStack>
+                      </Box>
                     </Box>
                   </Box>
                   <Box as="tbody">{produtosFiltrados.map((p) => {
@@ -331,26 +324,48 @@ export const ProdutosPage = () => {
                           {formatBRL(valor)}
                         </Box>
 
-                        <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
-                          {formatInt(p.estoqueAtual ?? 0)}
-                        </Box>
-
                         <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" textAlign="center">
-                          <MenuRoot positioning={{ placement: 'bottom-end' }}>
-                            <MenuTrigger asChild>
-                              <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto">
+                          {togglingId === p.id ? (
+                            <Spinner size="sm" color="gray.400" />
+                          ) : (
+                          <PopoverRoot positioning={{ placement: 'bottom-end' }}>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" h="28px" w="28px" p={0} aria-label="Ações do produto" disabled={togglingId !== null}>
                                 <PencilIcon size={16} />
                               </Button>
-                            </MenuTrigger>
-                            <MenuContent>
-                              <MenuItem value="edit" onClick={() => handleAbrirEdicao(p)}>
-                                Editar
-                              </MenuItem>
-                              <MenuItem value="delete" onClick={() => handleAbrirDelete(p)} color="red.600">
-                                Excluir
-                              </MenuItem>
-                            </MenuContent>
-                          </MenuRoot>
+                            </PopoverTrigger>
+                            <PopoverPositioner>
+                              <PopoverContent w="140px" p={0} boxShadow="md" borderRadius="md" border="1px solid" borderColor="gray.200">
+                                <PopoverBody p={1}>
+                                  <Stack gap={0}>
+                                    <Button variant="ghost" size="sm" justifyContent="flex-start" fontWeight="500" fontSize="sm" h="34px" px={3} borderRadius="sm" onClick={() => handleAbrirEdicao(p)}>
+                                      Editar
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      justifyContent="flex-start"
+                                      fontWeight="500"
+                                      fontSize="sm"
+                                      h="34px"
+                                      px={3}
+                                      borderRadius="sm"
+                                      color={p.status === 'ATIVO' ? 'red.600' : 'green.600'}
+                                      _hover={{ bg: p.status === 'ATIVO' ? 'red.50' : 'green.50' }}
+                                      onClick={() => handleToggleStatus(p)}
+                                    >
+                                      {p.status === 'ATIVO' ? 'Inativar' : 'Ativar'}
+                                    </Button>
+                                  </Stack>
+                                </PopoverBody>
+                              </PopoverContent>
+                            </PopoverPositioner>
+                          </PopoverRoot>
+                          )}
+                        </Box>
+
+                        <Box as="td" px={3} py={3} borderBottom="1px solid" borderColor="gray.100" fontSize="xs" color="gray.700" textAlign="right">
+                          {formatInt(p.estoqueAtual ?? 0)}
                         </Box>
                       </Box>
                     )
@@ -380,20 +395,6 @@ export const ProdutosPage = () => {
         onSubmit={handleEditarProduto}
       />
 
-      {/* Diálogo de Confirmação de Exclusão */}
-      <ConfirmDeleteDialog
-        open={openDelete}
-        title="Excluir produto"
-        description={produtoExcluindo ? `Tem certeza que deseja excluir o produto "${produtoExcluindo.nome}"? Esta ação não pode ser desfeita.` : ''}
-        submitting={deleteSubmitting}
-        error={deleteError}
-        onClose={() => {
-          setOpenDelete(false)
-          setProdutoExcluindo(null)
-          setDeleteError(null)
-        }}
-        onConfirm={handleConfirmarDelete}
-      />
     </Box>
   )
 }

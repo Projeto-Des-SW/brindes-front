@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Box, Button, Container, HStack, Image, Text, VStack } from '@chakra-ui/react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import logoBahiaBrindes from '../../assets/logo-bahia-brindes.svg'
 import { useAuth } from '../../context/useAuth'
 import { useCart } from '../../context/useCart'
@@ -9,6 +9,7 @@ import { HOME_NAV_LINKS } from './homeData'
 
 export const HomeNavbar = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuth()
   const { cartCount } = useCart()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -59,9 +60,15 @@ export const HomeNavbar = () => {
                     return
                   }
                   if (item === 'Produtos') {
-                    const section = document.getElementById('produtos-destaque')
-                    if (section) {
-                      section.scrollIntoView({ behavior: 'smooth' })
+                    const scrollToSection = () => {
+                      const section = document.getElementById('produtos-destaque')
+                      if (section) section.scrollIntoView({ behavior: 'smooth' })
+                    }
+                    if (location.pathname !== '/') {
+                      navigate('/')
+                      setTimeout(scrollToSection, 100)
+                    } else {
+                      scrollToSection()
                     }
                     return
                   }
@@ -107,19 +114,16 @@ export const HomeNavbar = () => {
                 Olá, {user.nome}
               </Text>
             ) : null}
-            <Box as="button" color="gray.600" _hover={{ color: '#1a1616' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-            </Box>
             <Box position="relative" ref={userMenuRef}>
               <Box
                 as="button"
                 color="gray.600"
+                cursor="pointer"
                 _hover={{ color: '#1a1616' }}
                 onClick={() => setIsUserMenuOpen((value) => !value)}
                 aria-label="Abrir menu do usuário"
+                display="flex"
+                alignItems="center"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
@@ -197,9 +201,12 @@ export const HomeNavbar = () => {
               as="button"
               position="relative"
               color="gray.600"
+              cursor="pointer"
               _hover={{ color: '#1a1616' }}
               onClick={() => navigate('/carrinho')}
               aria-label="Carrinho de orçamento"
+              display="flex"
+              alignItems="center"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />

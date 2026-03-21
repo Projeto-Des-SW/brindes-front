@@ -17,7 +17,6 @@ import { Compras } from './pages/Compras'
 import { VendasClientes } from './pages/VendasClientes'
 import { GestaoArquivos } from './pages/GestaoArquivos'
 import { Perfil } from './pages/Perfil'
-import { Configuracoes } from './pages/Configuracoes'
 import { EstoqueParametrizacoes } from './pages/EstoqueParametrizacoes'
 import { MeusOrcamentos } from './pages/MeusOrcamentos'
 import { OrcamentoDetalhe } from './pages/OrcamentoDetalhe'
@@ -73,7 +72,6 @@ export const AppRoutes = () => {
               <Route path="portal-interno" element={<PortalInterno />} />
               <Route path="compras" element={<Compras />} />
               <Route path="perfil" element={<Perfil />} />
-              <Route path="configuracoes" element={<Configuracoes />} />
 
               {/* Rotas que FUNCIONARIO e ADMIN acessam */}
               <Route path="estoque" element={<Estoque />} />
