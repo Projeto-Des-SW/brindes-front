@@ -166,5 +166,13 @@ export const materiaPrimaService = {
       throw new Error(msg || `Erro HTTP ${res.status}`)
     }
   },
+
+  async toggleStatus(id: number, token?: string | null): Promise<MateriaPrimaResponse> {
+    const res = await fetch(apiUrl(`${API_ENDPOINTS.estoque.materiasPrimas}/${id}/toggle`), {
+      method: 'PATCH',
+      headers: { ...authHeaders(token) },
+    })
+    return getJsonOrThrow<MateriaPrimaResponse>(res)
+  },
 }
 

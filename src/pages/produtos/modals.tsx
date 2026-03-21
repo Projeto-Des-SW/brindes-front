@@ -62,7 +62,6 @@ export const ProdutoUpsertDialog = ({
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [preco, setPreco] = useState('')
-  const [estoqueAtual, setEstoqueAtual] = useState('')
   const [status, setStatus] = useState('ATIVO')
   const [materias, setMaterias] = useState<MateriaLocal[]>([])
   const [condicoesPagamento, setCondicoesPagamento] = useState('')
@@ -107,7 +106,6 @@ export const ProdutoUpsertDialog = ({
         setNome(data.nome ?? '')
         setDescricao(data.descricao ?? '')
         setPreco(data.precoVenda != null ? String(data.precoVenda) : '')
-        setEstoqueAtual(data.estoqueAtual != null ? String(data.estoqueAtual) : '')
         setStatus(data.status ?? 'ATIVO')
         setCondicoesPagamento(data.condicoesPagamento ?? '')
         setPrazoProducao(data.prazoProducao ?? '')
@@ -128,7 +126,6 @@ export const ProdutoUpsertDialog = ({
         setNome('')
         setDescricao('')
         setPreco('')
-        setEstoqueAtual('')
         setStatus('ATIVO')
         setMaterias([])
         setCondicoesPagamento('')
@@ -184,7 +181,6 @@ export const ProdutoUpsertDialog = ({
       nome: nome.trim(),
       descricao: descricao.trim(),
       precoVenda: preco ? Number(preco) : null,
-      estoqueAtual: estoqueAtual ? Number(estoqueAtual) : null,
       status: status,
       condicoesPagamento: condicoesPagamento.trim() || undefined,
       prazoProducao: prazoProducao.trim(),
@@ -232,26 +228,14 @@ export const ProdutoUpsertDialog = ({
                 <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} bg="white" minH="80px" />
               </Stack>
 
-              {/* Preço + Quantidade + Status */}
-              <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
+              {/* Preço + Status */}
+              <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
                 <Stack gap={2}>
                   <FieldLabel>Preço *</FieldLabel>
                   <Input
                     value={preco}
                     onChange={(e) => setPreco(e.target.value)}
                     placeholder="Ex: 10.50"
-                    bg="white"
-                  />
-                </Stack>
-
-                <Stack gap={2}>
-                  <FieldLabel>Quantidade Disponível</FieldLabel>
-                  <Input
-                    value={estoqueAtual}
-                    onChange={(e) => setEstoqueAtual(e.target.value)}
-                    placeholder="Ex: 100"
-                    type="number"
-                    min={0}
                     bg="white"
                   />
                 </Stack>

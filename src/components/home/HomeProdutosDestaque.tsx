@@ -68,7 +68,7 @@ export const HomeProdutosDestaque = () => {
     const fetchProdutos = async () => {
       try {
         setLoading(true)
-        const response = await produtoService.listar({ page: 1, pageSize: 4 })
+        const response = await produtoService.listar({ page: 1, pageSize: 4, status: 'ATIVO' })
         setProdutos(response.items)
         setTotalProdutos(response.total)
       } catch (err) {
